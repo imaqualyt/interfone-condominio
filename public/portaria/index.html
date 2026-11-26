@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Interfone — Portaria</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="/manifest-portaria.json">
+<link rel="icon" href="/icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Portaria">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div id="faixa-offline" hidden></div>
+<header class="topo">
+  <h1 id="titulo">Portaria<small id="subtitulo">Painel do porteiro / síndico</small></h1>
+  <span class="pill off" id="pill-conexao" hidden>offline</span>
+  <button class="sec" id="btn-instalar" hidden>Instalar app</button>
+</header>
+<main>
+  <section id="tela-entrada" class="card">
+    <h2>Entrar no painel</h2>
+    <label for="p-nome">Seu nome</label><input id="p-nome" value="Portaria" maxlength="40">
+    <button id="p-entrar" type="button" style="width:100%;margin-top:10px">Abrir painel e receber chamadas</button>
+    <p class="dica">Pode abrir o painel em mais de uma aba/dispositivo: a chamada toca em todos e quem atender primeiro fica com ela.</p>
+  </section>
+
+  <section id="tela-painel" hidden>
+    <div class="abas">
+      <button data-aba="chamar" class="ativa" type="button">Chamar apto</button>
+      <button data-aba="historico" type="button">Histórico</button>
+      <button data-aba="avisos" type="button">Avisos</button>
+    </div>
+
+    <div id="aba-chamar">
+      <div class="card"><label for="busca" style="margin-top:0">Buscar apartamento</label>
+        <input id="busca" inputmode="numeric" placeholder="Digite o número do apto (ex.: 101)" autocomplete="off"></div>
+      <div id="lista-aptos"></div>
+      <div class="card"><button class="sec" id="btn-notif" type="button" style="width:100%">🔔 Ativar notificações e som de chamada</button>
+        <p class="dica">Toque e notificação funcionam com a aba aberta. Push real (FCM/APNs) só na versão nativa.</p></div>
+    </div>
+
+    <div id="aba-historico" hidden><div class="card"><h2>Histórico de chamadas</h2><div id="lista-historico"></div></div></div>
+
+    <div id="aba-avisos" hidden>
+      <div class="card"><h2>Aviso para um bloco</h2>
+        <select id="aviso-bloco"></select>
+        <textarea id="aviso-texto" rows="2" maxlength="300" placeholder="Ex.: Entrega na portaria para o apto 302" style="margin-top:8px"></textarea>
+        <button id="aviso-enviar" class="precisa-rede" type="button" style="margin-top:8px;width:100%">Enviar aviso</button></div>
+      <div id="lista-avisos"></div>
+    </div>
+  </section>
+</main>
+<div id="toast" hidden></div>
+<script src="/js/pwa.js"></script>
+<script src="/js/interfone.js"></script>
+<script src="/js/portaria.js"></script>
+</body>
+</html>

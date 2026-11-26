@@ -1,0 +1,22 @@
+{
+  "name": "interfone-condominio",
+  "version": "0.1.0",
+  "description": "Protótipo local de interfone de condomínio com voz via WebRTC (PWA)",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "reset": "node scripts/reset.js",
+    "icones": "node scripts/gerar-icones.js",
+    "test:e2e": "node tests/e2e.js",
+    "test:node": "node tests/webrtc-node.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1",
+    "werift": "^0.28.0"
+  }
+}

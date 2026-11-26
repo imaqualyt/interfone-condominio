@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Interfone — Morador</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-192.png">
+<!-- iOS (Safari): permite "Adicionar à Tela de Início" abrindo como app -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Interfone">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div id="faixa-offline" hidden></div>
+<header class="topo">
+  <h1 id="titulo">Interfone<small id="subtitulo">Cadastre-se para usar</small></h1>
+  <span class="pill off" id="pill-conexao" hidden>offline</span>
+  <button class="sec" id="btn-instalar" hidden>Instalar app</button>
+</header>
+
+<main>
+  <!-- cadastro / entrada -->
+  <section id="tela-auth">
+    <div class="abas"><button id="aba-cad" class="ativa" type="button">Cadastrar</button><button id="aba-ent" type="button">Já tenho cadastro</button></div>
+    <form id="form-cad" class="card precisa-rede">
+      <h2>Cadastro do morador</h2>
+      <label for="c-nome">Nome</label><input id="c-nome" autocomplete="name" placeholder="Ex.: Ana Paula" required>
+      <label for="c-apto">Apartamento</label><select id="c-apto" required></select>
+      <label for="c-tel">Telefone (com DDD)</label><input id="c-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="21 98888-0101" required>
+      <label for="c-papel">Você é</label>
+      <select id="c-papel"><option value="morador">Morador (1º número a tocar)</option><option value="proprietario">Proprietário (2º número a tocar)</option></select>
+      <p class="dica">Cada apartamento tem até dois números: o do morador toca primeiro; se não atender, toca o do proprietário.</p>
+      <button type="submit" style="width:100%;margin-top:6px">Cadastrar e entrar</button>
+      <div class="erro" id="erro-cad"></div>
+    </form>
+    <form id="form-ent" class="card precisa-rede" hidden>
+      <h2>Entrar</h2>
+      <label for="e-apto">Apartamento</label><select id="e-apto"></select>
+      <label for="e-tel">Telefone cadastrado</label><input id="e-tel" type="tel" inputmode="tel" placeholder="21 98888-0101" required>
+      <button type="submit" style="width:100%;margin-top:10px">Entrar</button>
+      <div class="erro" id="erro-ent"></div>
+    </form>
+  </section>
+
+  <!-- app -->
+  <section id="tela-app" hidden>
+    <div class="abas">
+      <button data-aba="contatos" class="ativa" type="button">Contatos</button>
+      <button data-aba="avisos" type="button">Avisos</button>
+      <button data-aba="historico" type="button">Histórico</button>
+    </div>
+
+    <div id="aba-contatos">
+      <div class="card portaria-card"><div><strong>🛎️ Portaria</strong><div class="dica" style="color:#ccfbf1" id="portaria-status">…</div></div><button id="ligar-portaria" class="precisa-rede" type="button">Ligar</button></div>
+      <div id="lista-contatos"></div>
+      <div class="card"><button class="sec" id="btn-notif" type="button" style="width:100%">🔔 Ativar notificações e som de chamada</button>
+        <p class="dica">Notificações e toque funcionam com a aba/app aberto. Push de verdade (app fechado) só na versão nativa.</p>
+        <button class="sec" id="btn-sair" type="button" style="width:100%;margin-top:6px">Sair deste cadastro</button></div>
+    </div>
+
+    <div id="aba-avisos" hidden>
+      <div class="card"><h2>Aviso ao <span id="nome-bloco">bloco</span></h2>
+        <textarea id="aviso-texto" rows="2" maxlength="300" placeholder="Ex.: Mudança no salão às 14h"></textarea>
+        <button id="aviso-enviar" class="precisa-rede" type="button" style="margin-top:8px;width:100%">Enviar para todos do bloco</button>
+        <p class="dica">Grupo simples por bloco: texto avisado a todos os moradores online do bloco e à portaria.</p></div>
+      <div id="lista-avisos"></div>
+    </div>
+
+    <div id="aba-historico" hidden><div class="card"><h2>Ligações do meu apartamento</h2><div id="lista-historico"></div></div></div>
+  </section>
+</main>
+<div id="toast" hidden></div>
+<script src="/js/pwa.js"></script>
+<script src="/js/interfone.js"></script>
+<script src="/js/morador.js"></script>
+</body>
+</html>
