@@ -5,6 +5,12 @@
   const params = new URLSearchParams(location.search);
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const temBlocos = c => !!(c && Array.isArray(c.blocos) && c.blocos.some(Boolean));
+  const andarDe = apto => { const n = parseInt(String(apto), 10); return Number.isFinite(n) && n >= 100 ? Math.floor(n / 100) : 0; };
+  const rotuloAndar = n => n ? n + 'º andar' : 'Outros';
+  const destinoAviso = a => (!a.bloco || a.bloco === 'todos') ? 'todo o condomínio' : 'bloco ' + a.bloco;
+  const rotuloApto = a => `Apto ${a.apto}` + (a.bloco ? ` · Bloco ${a.bloco}` : '');
+
   function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3500); }
   const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.erro || 'Erro'); return j; });
 
@@ -12,7 +18,7 @@
   async function carregarAptos() {
     try {
       const l = await (await fetch('/api/apartamentos')).json();
-      const opts = l.map(a => `<option value="${a.apto}">Apto ${a.apto} · Bloco ${a.bloco}</option>`).join('');
+      const opts = l.map(a => `<option value="${a.apto}">${rotuloApto(a)}</option>`).join('');
       $('#c-apto').innerHTML = opts; $('#e-apto').innerHTML = opts;
       localStorage.setItem('interfone.aptos', opts);
     } catch { const o = localStorage.getItem('interfone.aptos'); if (o) { $('#c-apto').innerHTML = o; $('#e-apto').innerHTML = o; } }
@@ -35,8 +41,16 @@
     localStorage.setItem('interfone.ultimo', JSON.stringify(u));
     $('#tela-auth').hidden = true; $('#tela-app').hidden = false;
     $('#titulo').firstChild.textContent = u.nome;
-    $('#subtitulo').textContent = `Apto ${u.apto} · Bloco ${u.bloco} · ${ROTULO[u.papel]}`;
-    $('#nome-bloco').textContent = 'Bloco ' + u.bloco;
+    $('#subtitulo').textContent = `Apto ${u.apto}` + (u.bloco ? ` · Bloco ${u.bloco}` : '') + ` · ${ROTULO[u.papel]}`;
+    if (u.bloco) {
+      $('#nome-bloco').textContent = 'Bloco ' + u.bloco;
+      $('#aviso-enviar').textContent = 'Enviar para todos do bloco';
+      const dica = $('#aviso-dica'); if (dica) dica.textContent = 'Grupo simples por bloco: texto avisado a todos os moradores online do bloco e à portaria.';
+    } else {
+      $('#nome-bloco').textContent = 'condomínio';
+      $('#aviso-enviar').textContent = 'Enviar para todos';
+      const dica = $('#aviso-dica'); if (dica) dica.textContent = 'O texto chega a todos os moradores online e à portaria.';
+    }
     document.title = `Interfone — ${u.nome} (${u.apto}/${u.papel === 'morador' ? 'M' : 'P'})`;
     iniciarApp();
   }
@@ -66,18 +80,25 @@
     try { contatos = await (await fetch('/api/contatos')).json(); localStorage.setItem('interfone.contatos', JSON.stringify(contatos)); }
     catch { const c = localStorage.getItem('interfone.contatos'); if (!c) return; contatos = JSON.parse(c); }
     $('#portaria-status').textContent = contatos.portariaOnline ? '● Atendimento disponível' : '○ Ninguém online no painel agora';
-    const html = contatos.blocos.map(b => {
-      const apts = contatos.apartamentos.filter(a => a.bloco === b);
-      return `<h3>Bloco ${esc(b)}</h3>` + apts.map(a => {
-        const outros = a.moradores.filter(m => m.id !== usuario.id);
-        const proprio = a.apto === usuario.apto;
-        return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">Apto ${esc(a.apto)}</span>${proprio ? ' <span class="apto-bloco">(seu apto)</span>' : ''}</div>
+    const card = a => {
+      const outros = a.moradores.filter(m => m.id !== usuario.id);
+      const proprio = a.apto === usuario.apto;
+      return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">Apto ${esc(a.apto)}</span>${proprio ? ' <span class="apto-bloco">(seu apto)</span>' : ''}</div>
           <button class="ligar-apto precisa-rede" data-apto="${esc(a.apto)}" ${outros.length ? '' : 'disabled'} type="button">📞 Ligar</button></div>
           ${a.moradores.length ? a.moradores.map(m => `<div class="pessoa"><span class="dot ${m.online ? 'on' : ''}"></span><div class="info">${esc(m.nome)}<small>${ROTULO[m.papel]} · ${esc(m.telefone)} · ${m.online ? 'online' : 'offline'}</small></div></div>`).join('') : '<div class="pessoa"><div class="info"><small>Ninguém cadastrado ainda</small></div></div>'}
         </div>`;
-      }).join('');
-    }).join('');
-    $('#lista-contatos').innerHTML = html;
+    };
+    const grupos = new Map();
+    for (const a of contatos.apartamentos) {
+      const usarBloco = temBlocos(contatos);
+      const key = usarBloco ? (a.bloco || '') : String(andarDe(a.apto));
+      const titulo = usarBloco ? (a.bloco ? 'Bloco ' + a.bloco : '') : rotuloAndar(andarDe(a.apto));
+      if (!grupos.has(key)) grupos.set(key, { titulo, aptos: [] });
+      grupos.get(key).aptos.push(a);
+    }
+    $('#lista-contatos').innerHTML = [...grupos.values()].map(g =>
+      (g.titulo ? `<h3 class="grupo-aptos">${esc(g.titulo)}</h3>` : '') + g.aptos.map(card).join('')
+    ).join('');
   }
   $('#lista-contatos').onclick = e => {
     const b = e.target.closest('.ligar-apto'); if (!b) return;
@@ -91,11 +112,12 @@
 
   async function carregarAvisos() {
     try {
-      const l = await (await fetch('/api/avisos?bloco=' + usuario.bloco)).json();
-      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${a.bloco === 'todos' ? 'todos os blocos' : 'bloco ' + esc(a.bloco)} · ${new Date(a.em).toLocaleString('pt-BR')}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
+      const qs = usuario.bloco ? ('?bloco=' + encodeURIComponent(usuario.bloco)) : '';
+      const l = await (await fetch('/api/avisos' + qs)).json();
+      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${esc(destinoAviso(a))} · ${new Date(a.em).toLocaleString('pt-BR')}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
     } catch {}
   }
-  $('#aviso-enviar').onclick = () => { const t = $('#aviso-texto').value.trim(); if (!t) return; app.enviar({ type: 'aviso', texto: t }); $('#aviso-texto').value = ''; toast('Aviso enviado ao bloco.'); };
+  $('#aviso-enviar').onclick = () => { const t = $('#aviso-texto').value.trim(); if (!t) return; app.enviar({ type: 'aviso', texto: t }); $('#aviso-texto').value = ''; toast(usuario.bloco ? 'Aviso enviado ao bloco.' : 'Aviso enviado ao condomínio.'); };
 
   const RES = { atendida: 'Atendida', indisponivel: 'Apto indisponível', cancelada: 'Cancelada' };
   async function carregarHistorico() {

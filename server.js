@@ -4,7 +4,7 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
-const { db, salvar, blocoDe, apartamentos } = require('./store');
+const { db, salvar, blocoDe, aptoExiste, apartamentos } = require('./store');
 
 const PORT = Number(process.env.PORT || 5180);
 const TIMEOUT_PADRAO = Number(process.env.TIMEOUT || 30); // segundos por número
@@ -25,7 +25,11 @@ const chamadas = new Map(); // id -> chamada
 const enviar = (ws, obj) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); };
 const socketsDoUsuario = id => [...conexoes].filter(w => w.kind === 'morador' && w.userId === id);
 const socketsPortaria = () => [...conexoes].filter(w => w.kind === 'portaria');
-const publico = u => ({ id: u.id, nome: u.nome, apto: u.apto, bloco: u.bloco, papel: u.papel, telefone: mascarar(u.telefone) });
+const publico = u => {
+  const o = { id: u.id, nome: u.nome, apto: u.apto, papel: u.papel, telefone: mascarar(u.telefone) };
+  if (u.bloco) o.bloco = u.bloco;
+  return o;
+};
 
 let presencaTimer = null;
 function transmitirPresenca() {
@@ -40,7 +44,7 @@ app.post('/api/registrar', (req, res) => {
   const papel = String(req.body.papel || '');
   const telefone = soDigitos(req.body.telefone);
   if (nome.length < 2) return res.status(400).json({ erro: 'Informe seu nome.' });
-  if (!blocoDe(apto)) return res.status(400).json({ erro: 'Apartamento não encontrado no condomínio.' });
+  if (!aptoExiste(apto)) return res.status(400).json({ erro: 'Apartamento não encontrado no condomínio.' });
   if (!PAPEIS.includes(papel)) return res.status(400).json({ erro: 'Escolha: morador ou proprietário.' });
   if (telefone.length < 10 || telefone.length > 13) return res.status(400).json({ erro: 'Telefone inválido (use DDD + número).' });
   const existente = db.usuarios.find(u => u.apto === apto && u.papel === papel);
@@ -48,7 +52,9 @@ app.post('/api/registrar', (req, res) => {
     if (existente.telefone === telefone) return res.json({ usuario: publico(existente), jaCadastrado: true });
     return res.status(409).json({ erro: `Já existe um ${ROTULO[papel].toLowerCase()} cadastrado no apto ${apto} com outro telefone.` });
   }
-  const u = { id: uid(), nome, apto, bloco: blocoDe(apto), telefone, papel, criadoEm: new Date().toISOString() };
+  const u = { id: uid(), nome, apto, telefone, papel, criadoEm: new Date().toISOString() };
+  const bloco = blocoDe(apto);
+  if (bloco) u.bloco = bloco;
   db.usuarios.push(u);
   salvar();
   transmitirPresenca();
@@ -66,15 +72,19 @@ app.post('/api/entrar', (req, res) => {
 app.get('/api/apartamentos', (req, res) => res.json(apartamentos));
 
 app.get('/api/contatos', (req, res) => {
-  const lista = apartamentos.map(a => ({
-    apto: a.apto,
-    bloco: a.bloco,
-    moradores: db.usuarios
-      .filter(u => u.apto === a.apto)
-      .sort((x, y) => PAPEIS.indexOf(x.papel) - PAPEIS.indexOf(y.papel))
-      .map(u => ({ ...publico(u), online: socketsDoUsuario(u.id).length > 0 }))
-  }));
-  res.json({ apartamentos: lista, portariaOnline: socketsPortaria().length > 0, blocos: [...new Set(apartamentos.map(a => a.bloco))] });
+  const lista = apartamentos.map(a => {
+    const item = {
+      apto: a.apto,
+      moradores: db.usuarios
+        .filter(u => u.apto === a.apto)
+        .sort((x, y) => PAPEIS.indexOf(x.papel) - PAPEIS.indexOf(y.papel))
+        .map(u => ({ ...publico(u), online: socketsDoUsuario(u.id).length > 0 }))
+    };
+    if (a.bloco) item.bloco = a.bloco;
+    return item;
+  });
+  const blocos = [...new Set(apartamentos.map(a => a.bloco).filter(Boolean))];
+  res.json({ apartamentos: lista, portariaOnline: socketsPortaria().length > 0, blocos });
 });
 
 app.get('/api/historico', (req, res) => {
@@ -113,7 +123,7 @@ function iniciarChamada(ws, msg) {
   if (ws.callId) return enviar(ws, { type: 'erro', texto: 'Você já está em uma chamada.' });
   const alvo = msg.alvo || {};
   if (alvo.tipo === 'portaria' && ws.kind === 'portaria') return enviar(ws, { type: 'erro', texto: 'A portaria não pode ligar para si mesma.' });
-  if (alvo.tipo === 'apto' && !blocoDe(alvo.apto)) return enviar(ws, { type: 'erro', texto: 'Apartamento inexistente.' });
+  if (alvo.tipo === 'apto' && !aptoExiste(alvo.apto)) return enviar(ws, { type: 'erro', texto: 'Apartamento inexistente.' });
   if (!['apto', 'portaria'].includes(alvo.tipo)) return enviar(ws, { type: 'erro', texto: 'Destino inválido.' });
   const timeoutSeg = Math.min(120, Math.max(3, Number(msg.timeout) || TIMEOUT_PADRAO));
   const chamador = ws.kind === 'portaria'
@@ -241,7 +251,7 @@ function aviso(ws, msg) {
   const texto = String(msg.texto || '').trim().slice(0, 300);
   if (!texto) return;
   let bloco = msg.bloco || 'todos';
-  if (ws.kind === 'morador') bloco = ws.usuario.bloco; // morador só avisa o próprio bloco
+  if (ws.kind === 'morador') bloco = ws.usuario.bloco || 'todos'; // sem bloco, avisa o condomínio inteiro
   const a = {
     id: uid(), em: new Date().toISOString(), bloco, texto,
     de: ws.kind === 'portaria' ? { nome: ws.nome || 'Portaria', tipo: 'portaria' } : { nome: ws.usuario.nome, apto: ws.usuario.apto, tipo: 'morador' }

@@ -62,3 +62,7 @@ body.offline .precisa-rede { opacity:.45; pointer-events:none; }
 #tela-chamada.final .chamada-avatar { display:none; }
 button.rb, button.rb.verde, button.rb.vermelho, button.rb.cinza { background:none; padding:0; }
 button.rb:disabled { opacity:1; }
+
+#lista-aptos h3.grupo-aptos, #lista-contatos h3.grupo-aptos {
+  margin: 16px 4px 8px; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--suave);
+}

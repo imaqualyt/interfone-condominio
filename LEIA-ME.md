@@ -7,7 +7,7 @@ Tudo roda em uma máquina só (`http://localhost`), com várias abas do navegado
 
 | Parte | Onde |
 |---|---|
-| App do morador (cadastro, contatos por apartamento, tela de chamada, avisos por bloco, histórico do apto) | `/morador/` |
+| App do morador (cadastro, contatos por apartamento, tela de chamada, avisos ao condomínio, histórico do apto) | `/morador/` |
 | Painel da portaria (busca por apto, chamar, receber chamadas, histórico, avisos) | `/portaria/` |
 | Servidor (Node + Express + `ws`): cadastros, roteamento de chamadas, regra dos dois números, sinalização WebRTC, histórico | `server.js` |
 | PWA: `manifest.json`, `sw.js` (cache da interface), ícones, meta tags do iOS, faixa "sem conexão" | `public/` |
@@ -36,10 +36,16 @@ npm start          # sobe em http://localhost:5180
 - Para voltar ao estado inicial (apaga os cadastros e o histórico): `npm run reset` (com o servidor parado ou reinicie-o depois).
 - Outra porta: `PORT=3000 npm start`. Outro tempo padrão: `TIMEOUT=15 npm start`.
 
-### Dados de demonstração (seed)
-Apartamentos: **101, 102, 201, 202** (Bloco A) e **301, 302** (Bloco B).
-Já vêm cadastrados, mas **sempre offline** (ninguém logado): **201** (Carla — morador; Roberto — proprietário) e **202** (Marcos — morador). Servem para ver o "Apto indisponível" na hora.
-Os aptos **101, 102, 301 e 302** começam vazios: cadastre você mesmo no teste abaixo.
+### Apartamentos do condomínio
+O prédio **não tem blocos**. São **20 apartamentos**, agrupados por andar:
+
+- 1º andar: **101, 102, 103, 104**
+- 2º andar: **201, 202, 203, 204**
+- 3º andar: **301, 302, 303, 304**
+- 4º andar: **401, 402, 403, 404**
+- 5º andar: **501, 502, 503, 504**
+
+Ninguém vem pré-cadastrado: cada morador ou proprietário se registra pelo app. Um apartamento sem ninguém online aparece como **"Apto indisponível"** se você ligar (ou o botão **Chamar** fica desabilitado se ainda não houver cadastro).
 
 ## Roteiro de teste (passo a passo, ~5 minutos)
 
@@ -71,7 +77,7 @@ Os aptos **101, 102, 301 e 302** começam vazios: cadastre você mesmo no teste 
 
 1. Chame o **101** de novo e não atenda em nenhuma das duas abas.
 2. Depois dos dois tempos (20 s com `?timeout=10`), a portaria vê **"Apto indisponível"** e o histórico registra a chamada como indisponível, com as duas tentativas "não atendeu".
-3. Chame o **201** (seed, sempre offline): "Apto indisponível" aparece **imediatamente**, com "fora do ar" nas duas tentativas.
+3. Cadastre alguém no **201**, saia desse cadastro (ou feche a aba) e chame o **201** pela portaria: "Apto indisponível" aparece **imediatamente**, com "fora do ar".
 
 **Teste 4 — Morador ↔ morador e morador → portaria**
 
@@ -79,9 +85,9 @@ Os aptos **101, 102, 301 e 302** começam vazios: cadastre você mesmo no teste 
 2. Na aba 4, clique em **Ligar** no cartão **🛎️ Portaria**: a chamada toca no painel da portaria (em todas as abas de portaria abertas — quem atender primeiro fica com ela).
 3. Chamada de um morador para o **próprio apartamento** toca no *outro* número do apto (o próprio aparelho é pulado).
 
-**Teste 5 — Aviso por bloco (grupo simples)**
+**Teste 5 — Aviso ao condomínio**
 
-Na aba 4, aba **Avisos**, escreva um texto e envie: aparece na hora para todos os moradores online do **Bloco A** (e para a portaria). A portaria também pode enviar para um bloco específico ou para todos.
+Na aba 4, aba **Avisos**, escreva um texto e envie: aparece na hora para todos os moradores online (e para a portaria). A portaria também pode enviar um aviso para todo o condomínio.
 
 **Teste 6 — Notificação e toque**
 
@@ -128,7 +134,7 @@ npm run test:node   # pares WebRTC em Node (werift): prova ICE/DTLS "connected" 
 - **Sem autenticação forte:** sem confirmação do telefone por SMS e sem aprovação da portaria; qualquer pessoa com apto + telefone entra. O painel da portaria não tem senha.
 - **Telefone não disca:** o "número" é só um cadastro; a chamada é pela internet, não pela rede telefônica.
 - **Um servidor, memória/JSON:** não escala nem tem backup; reiniciar mantém `data/data.json`, mas não há banco de dados.
-- **Chamadas 1:1 apenas;** o "grupo" é só aviso de texto por bloco (sem voz em grupo).
+- **Chamadas 1:1 apenas;** o "grupo" é só aviso de texto para o condomínio (sem voz em grupo).
 - **Eco:** duas abas no mesmo computador captam o áudio uma da outra — use fones.
 - **HTTP em rede local não libera microfone** em celulares (precisa de HTTPS; veja acima).
 - **iOS:** o PWA do Safari tem limitações (áudio/microfone em segundo plano, sem push com app fechado em todas as versões).
@@ -139,7 +145,7 @@ npm run test:node   # pares WebRTC em Node (werift): prova ICE/DTLS "connected" 
 App nativo **"Interfone Condomínio"** (pacote `br.com.paulo.interfone`) que usa **o mesmo servidor Node** (`server.js`), com o **mesmo protocolo, regras e seed** da versão web. Web/PWA e app conversam entre si: um porteiro no navegador pode ligar para um morador no app e vice-versa.
 
 - **APK:** `InterfoneCondominio.apk` (na raiz do projeto, ~15 MB, Android 7.0+, só celulares 64 bits/arm64, assinado com a chave de *debug*).
-- **O que tem:** escolha de perfil no primeiro uso (**Morador/Proprietário** com cadastro ou **Portaria**), contatos por apartamento e bloco com status online, ligar para um apartamento ou para a portaria, tela de chamada (**Atender, Recusar, Mudo, Viva-voz, Desligar**), selo **"2º número"** quando o servidor passa para o proprietário, **"Apto indisponível"**, histórico, avisos por bloco, tema claro/escuro (Material 3) e **Ajustes** com o endereço do servidor.
+- **O que tem:** escolha de perfil no primeiro uso (**Morador/Proprietário** com cadastro ou **Portaria**), contatos por apartamento (agrupados por andar) com status online, ligar para um apartamento ou para a portaria, tela de chamada (**Atender, Recusar, Mudo, Viva-voz, Desligar**), selo **"2º número"** quando o servidor passa para o proprietário, **"Apto indisponível"**, histórico, avisos ao condomínio, tema claro/escuro (Material 3) e **Ajustes** com o endereço do servidor.
 - **Chamada recebida:** toque do celular em loop + **notificação de chamada em tela cheia** (com botões Atender/Recusar). Com **"Manter conectado em segundo plano"** ligado (padrão), o app roda um **serviço em primeiro plano** (notificação fixa "Interfone conectado") que mantém a conexão com o servidor com o app minimizado.
 - **Permissões pedidas:** microfone, notificações (Android 13+) e, em Ajustes, "notificações em tela cheia" (Android 14+).
 

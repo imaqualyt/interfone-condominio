@@ -5,6 +5,11 @@
   let app = null, contatos = null, nome = 'Portaria';
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const temBlocos = c => !!(c && Array.isArray(c.blocos) && c.blocos.some(Boolean));
+  const andarDe = apto => { const n = parseInt(String(apto), 10); return Number.isFinite(n) && n >= 100 ? Math.floor(n / 100) : 0; };
+  const rotuloAndar = n => n ? n + 'º andar' : 'Outros';
+  const destinoAviso = a => (!a.bloco || a.bloco === 'todos') ? 'todo o condomínio' : 'bloco ' + a.bloco;
+
   function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3500); }
 
   function entrar() {
@@ -34,18 +39,41 @@
   async function carregarContatos() {
     try { contatos = await (await fetch('/api/contatos')).json(); localStorage.setItem('interfone.contatos', JSON.stringify(contatos)); }
     catch { const c = localStorage.getItem('interfone.contatos'); if (!c) return; contatos = JSON.parse(c); }
-    $('#aviso-bloco').innerHTML = '<option value="todos">Todos os blocos</option>' + contatos.blocos.map(b => `<option value="${esc(b)}">Bloco ${esc(b)}</option>`).join('');
+    const sel = $('#aviso-bloco');
+    const titulo = $('#aviso-titulo');
+    if (temBlocos(contatos)) {
+      sel.hidden = false;
+      sel.innerHTML = '<option value="todos">Todos os blocos</option>' + contatos.blocos.map(b => `<option value="${esc(b)}">Bloco ${esc(b)}</option>`).join('');
+      if (titulo) titulo.textContent = 'Aviso para um bloco';
+    } else {
+      sel.hidden = true;
+      sel.innerHTML = '<option value="todos" selected>Todo o condomínio</option>';
+      if (titulo) titulo.textContent = 'Aviso ao condomínio';
+    }
     desenharAptos();
+  }
+  function cardApto(a) {
+    return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">Apto ${esc(a.apto)}</span>${a.bloco ? ' <span class="apto-bloco">Bloco ' + esc(a.bloco) + '</span>' : ''}</div>
+        <button class="ligar-apto precisa-rede" data-apto="${esc(a.apto)}" ${a.moradores.length ? '' : 'disabled'} type="button">📞 Chamar</button></div>
+        ${a.moradores.length ? a.moradores.map((m, i) => `<div class="pessoa"><span class="dot ${m.online ? 'on' : ''}"></span><div class="info">${i + 1}º · ${esc(m.nome)}<small>${ROTULO[m.papel]} · ${esc(m.telefone)} · ${m.online ? 'online' : 'offline'}</small></div></div>`).join('') : '<div class="pessoa"><div class="info"><small>Ninguém cadastrado</small></div></div>'}
+      </div>`;
   }
   function desenharAptos() {
     if (!contatos) return;
     const q = $('#busca').value.trim();
     const lista = contatos.apartamentos.filter(a => !q || a.apto.includes(q));
-    $('#lista-aptos').innerHTML = lista.length ? lista.map(a => `
-      <div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">Apto ${esc(a.apto)}</span> <span class="apto-bloco">Bloco ${esc(a.bloco)}</span></div>
-        <button class="ligar-apto precisa-rede" data-apto="${esc(a.apto)}" ${a.moradores.length ? '' : 'disabled'} type="button">📞 Chamar</button></div>
-        ${a.moradores.length ? a.moradores.map((m, i) => `<div class="pessoa"><span class="dot ${m.online ? 'on' : ''}"></span><div class="info">${i + 1}º · ${esc(m.nome)}<small>${ROTULO[m.papel]} · ${esc(m.telefone)} · ${m.online ? 'online' : 'offline'}</small></div></div>`).join('') : '<div class="pessoa"><div class="info"><small>Ninguém cadastrado</small></div></div>'}
-      </div>`).join('') : '<div class="vazio">Nenhum apartamento encontrado.</div>';
+    if (!lista.length) { $('#lista-aptos').innerHTML = '<div class="vazio">Nenhum apartamento encontrado.</div>'; return; }
+    const grupos = new Map();
+    for (const a of lista) {
+      const usarBloco = temBlocos(contatos);
+      const key = usarBloco ? (a.bloco || '') : String(andarDe(a.apto));
+      const titulo = usarBloco ? (a.bloco ? 'Bloco ' + a.bloco : '') : rotuloAndar(andarDe(a.apto));
+      if (!grupos.has(key)) grupos.set(key, { titulo, aptos: [] });
+      grupos.get(key).aptos.push(a);
+    }
+    $('#lista-aptos').innerHTML = [...grupos.values()].map(g =>
+      (g.titulo ? `<h3 class="grupo-aptos">${esc(g.titulo)}</h3>` : '') + g.aptos.map(cardApto).join('')
+    ).join('');
   }
   $('#busca').oninput = desenharAptos;
   $('#lista-aptos').onclick = e => { const b = e.target.closest('.ligar-apto'); if (b) app.ligar({ tipo: 'apto', apto: b.dataset.apto }, 'Apto ' + b.dataset.apto); };
@@ -65,7 +93,7 @@
   async function carregarAvisos() {
     try {
       const l = await (await fetch('/api/avisos')).json();
-      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${a.bloco === 'todos' ? 'todos os blocos' : 'bloco ' + esc(a.bloco)} · ${new Date(a.em).toLocaleString('pt-BR')}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
+      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${esc(destinoAviso(a))} · ${new Date(a.em).toLocaleString('pt-BR')}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
     } catch {}
   }
   $('#aviso-enviar').onclick = () => { const t = $('#aviso-texto').value.trim(); if (!t) return; app.enviar({ type: 'aviso', bloco: $('#aviso-bloco').value, texto: t }); $('#aviso-texto').value = ''; toast('Aviso enviado.'); };
