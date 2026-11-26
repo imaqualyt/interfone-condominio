@@ -37,13 +37,15 @@ npm start          # sobe em http://localhost:5180
 - Outra porta: `PORT=3000 npm start`. Outro tempo padrão: `TIMEOUT=15 npm start`.
 
 ### Apartamentos do condomínio
-O prédio **não tem blocos**. São **20 apartamentos**, agrupados por andar:
+O prédio **não tem blocos**. São **180 apartamentos**, 36 por andar, agrupados por andar:
 
-- 1º andar: **101, 102, 103, 104**
-- 2º andar: **201, 202, 203, 204**
-- 3º andar: **301, 302, 303, 304**
-- 4º andar: **401, 402, 403, 404**
-- 5º andar: **501, 502, 503, 504**
+- 1º andar: **101 a 136**
+- 2º andar: **201 a 236**
+- 3º andar: **301 a 336**
+- 4º andar: **401 a 436**
+- 5º andar: **501 a 536**
+
+A lista fica em um só lugar: `seed.js` (`APTOS_POR_ANDAR`). Para trocar, edite esse arquivo.
 
 Ninguém vem pré-cadastrado: cada morador ou proprietário se registra pelo app. Um apartamento sem ninguém online aparece como **"Apto indisponível"** se você ligar (ou o botão **Chamar** fica desabilitado se ainda não houver cadastro).
 

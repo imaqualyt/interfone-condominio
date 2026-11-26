@@ -76,6 +76,7 @@
     carregarContatos();
   }
 
+  if ($('#busca-morador')) $('#busca-morador').oninput = () => { if (contatos) carregarContatos(); };
   async function carregarContatos() {
     try { contatos = await (await fetch('/api/contatos')).json(); localStorage.setItem('interfone.contatos', JSON.stringify(contatos)); }
     catch { const c = localStorage.getItem('interfone.contatos'); if (!c) return; contatos = JSON.parse(c); }
@@ -89,7 +90,8 @@
         </div>`;
     };
     const grupos = new Map();
-    for (const a of contatos.apartamentos) {
+    const q = ($('#busca-morador') ? $('#busca-morador').value : '').trim();
+    for (const a of contatos.apartamentos.filter(a => !q || String(a.apto).includes(q))) {
       const usarBloco = temBlocos(contatos);
       const key = usarBloco ? (a.bloco || '') : String(andarDe(a.apto));
       const titulo = usarBloco ? (a.bloco ? 'Bloco ' + a.bloco : '') : rotuloAndar(andarDe(a.apto));
@@ -97,7 +99,7 @@
       grupos.get(key).aptos.push(a);
     }
     $('#lista-contatos').innerHTML = [...grupos.values()].map(g =>
-      (g.titulo ? `<h3 class="grupo-aptos">${esc(g.titulo)}</h3>` : '') + g.aptos.map(card).join('')
+      (g.titulo ? `<h3 class="grupo-aptos">${esc(g.titulo)}</h3>` : '') + '<div class="grade-aptos">' + g.aptos.map(card).join('') + '</div>'
     ).join('');
   }
   $('#lista-contatos').onclick = e => {

@@ -66,3 +66,10 @@ button.rb:disabled { opacity:1; }
 #lista-aptos h3.grupo-aptos, #lista-contatos h3.grupo-aptos {
   margin: 16px 4px 8px; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--suave);
 }
+
+/* 36 aptos por andar: grade compacta e rolável por andar */
+.grade-aptos { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-bottom:6px; }
+.grade-aptos .apto { margin-bottom:0; padding:8px 10px; min-width:0; }
+.grade-aptos .apto-topo { flex-wrap:wrap; }
+.grade-aptos .apto button { padding:6px 10px; font-size:.8rem; }
+.grade-aptos .info { overflow-wrap:anywhere; }

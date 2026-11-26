@@ -72,7 +72,7 @@
       grupos.get(key).aptos.push(a);
     }
     $('#lista-aptos').innerHTML = [...grupos.values()].map(g =>
-      (g.titulo ? `<h3 class="grupo-aptos">${esc(g.titulo)}</h3>` : '') + g.aptos.map(cardApto).join('')
+      (g.titulo ? `<h3 class="grupo-aptos">${esc(g.titulo)}</h3>` : '') + '<div class="grade-aptos">' + g.aptos.map(cardApto).join('') + '</div>'
     ).join('');
   }
   $('#busca').oninput = desenharAptos;
