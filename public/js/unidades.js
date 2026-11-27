@@ -1,4 +1,4 @@
-// Helpers compartilhados: rótulo e agrupamento das 179 unidades (lojas + apartamentos).
+// Helpers compartilhados: rótulo e agrupamento das 182 unidades (lojas + apartamentos).
 (function (g) {
   function ehLoja(apto) {
     return /^LJ\s*[A-D]$/i.test(String(apto || '').trim());
@@ -13,8 +13,9 @@
   }
   function chaveGrupo(apto) {
     if (ehLoja(apto)) return 'lojas';
-    const n = parseInt(String(apto), 10);
-    return Number.isFinite(n) && n >= 100 ? String(Math.floor(n / 100)) : '0';
+    const m = String(apto).match(/(\d{3,})/);
+    const n = m ? parseInt(m[1], 10) : 0;
+    return n >= 100 ? String(Math.floor(n / 100)) : '0';
   }
   function rotuloGrupo(chave) {
     if (chave === 'lojas') return 'Lojas';

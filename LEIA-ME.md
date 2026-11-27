@@ -43,14 +43,14 @@ No painel da portaria, preencha **Telefone da portaria (com DDD)** e toque em **
 O valor salvo no painel **sempre substitui** o padrão `PORTARIA_TELEFONE` até o servidor reiniciar. No plano **free** do Render os dados (incluindo esse número) zeram no reinício; aí volta o valor de `PORTARIA_TELEFONE`, se estiver definido no serviço. Sem essa variável, o campo fica em branco até alguém cadastrar de novo.
 
 ### Unidades do condomínio
-O prédio **não tem blocos**. São **175 apartamentos + 4 lojas = 179 unidades**, com os números do balanço do prédio (lista explícita em `seed.js`):
+O prédio **não tem blocos**. São **178 unidades de apartamento + 4 lojas = 182 unidades** (lista explícita em `seed.js`). Alguns números que faltavam no balanço (inadimplência) foram incluídos; 536 e 538 formam uma unidade só:
 
 - Lojas (térreo): **LJ A, LJ B, LJ C, LJ D**
 - 1º andar (21): **116, 117, 121–137, 139, 140**
 - 2º andar (37): **201–206, 208, 211–240**
 - 3º andar (40): **301–340**
-- 4º andar (39): **401–407, 409–440**
-- 5º andar (37): **501–508, 510–518, 520–523, 525–540**
+- 4º andar (40): **401–440**
+- 5º andar (39): **501–535, 536/538, 537, 539, 540** (536 e 538 unidos; a busca por 536 ou 538 acha essa unidade)
 - 6º andar (1): **601**
 
 A lista fica em um só lugar: `seed.js`. Para trocar, edite esse arquivo. Lojas e apartamentos aparecem no cadastro, na agenda da portaria e nas ligações. Há busca por número ou "LJ".
