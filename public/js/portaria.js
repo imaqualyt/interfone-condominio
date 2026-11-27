@@ -17,7 +17,7 @@
     sessionStorage.setItem('interfone.porteiro', nome);
     $('#tela-entrada').hidden = true; $('#tela-painel').hidden = false;
     $('#subtitulo').textContent = 'Logado como ' + nome;
-    document.title = 'Interfone — Portaria (' + nome + ')';
+    document.title = 'Interfone Higino — Portaria (' + nome + ')';
     app = new Interfone({
       kind: 'portaria',
       hello: () => ({ kind: 'portaria', nome }),

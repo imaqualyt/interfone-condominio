@@ -6,8 +6,8 @@ const APTOS_POR_ANDAR = {
   2: { de: 201, ate: 236 },
   3: { de: 301, ate: 336 },
   4: { de: 401, ate: 436 },
-  5: { de: 501, ate: 536 }
-  // 36 aptos por andar, 180 no total.
+  5: { de: 501, ate: 540 }
+  // Andares 1–4: 36 aptos cada; 5º andar: 40 aptos (501–540). Total: 184.
 };
 
 function expandir(def) {

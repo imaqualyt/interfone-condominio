@@ -37,13 +37,13 @@ npm start          # sobe em http://localhost:5180
 - Outra porta: `PORT=3000 npm start`. Outro tempo padrão: `TIMEOUT=15 npm start`.
 
 ### Apartamentos do condomínio
-O prédio **não tem blocos**. São **180 apartamentos**, 36 por andar, agrupados por andar:
+O prédio **não tem blocos**. São **184 apartamentos**, agrupados por andar (36 nos andares 1 a 4 e 40 no 5º):
 
 - 1º andar: **101 a 136**
 - 2º andar: **201 a 236**
 - 3º andar: **301 a 336**
 - 4º andar: **401 a 436**
-- 5º andar: **501 a 536**
+- 5º andar: **501 a 540**
 
 A lista fica em um só lugar: `seed.js` (`APTOS_POR_ANDAR`). Para trocar, edite esse arquivo.
 
