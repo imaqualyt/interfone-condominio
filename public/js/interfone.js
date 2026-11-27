@@ -54,7 +54,7 @@
     receber(m) {
       switch (m.type) {
         case 'hello:ok': window.__wsOff = false; window.__wsOk = true; window.__atualizarFaixa && window.__atualizarFaixa(); this.onEvent('conexao', true); break;
-        case 'erro': this.onEvent('erro', m); if (m.codigo === 'usuario_invalido') this.parar(); else this.aviso(m.texto); break;
+        case 'erro': this.onEvent('erro', m); if (m.codigo === 'usuario_invalido' || m.codigo === 'senha_invalida') this.parar(); else this.aviso(m.texto); break;
         case 'call:started': if (this.call) { this.call.id = m.callId; } break;
         case 'call:status': this.statusChamada(m.texto); break;
         case 'call:incoming': this.chegou(m); break;

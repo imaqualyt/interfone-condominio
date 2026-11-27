@@ -25,8 +25,11 @@
   <section id="tela-entrada" class="card">
     <h2>Entrar no painel</h2>
     <label for="p-nome">Seu nome</label><input id="p-nome" value="Portaria" maxlength="40">
+    <label for="p-senha">Senha</label>
+    <input id="p-senha" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="20" placeholder="Senha da portaria">
     <button id="p-entrar" type="button" style="width:100%;margin-top:10px">Abrir painel e receber chamadas</button>
-    <p class="dica">Pode abrir o painel em mais de uma aba/dispositivo: a chamada toca em todos e quem atender primeiro fica com ela.</p>
+    <p id="p-erro" class="erro"></p>
+    <p class="dica">A senha é conferida no servidor. Pode abrir o painel em mais de uma aba/dispositivo: a chamada toca em todos e quem atender primeiro fica com ela.</p>
   </section>
 
   <section id="tela-painel" hidden>

@@ -2,7 +2,7 @@
   const $ = s => document.querySelector(s);
   const ROTULO = { morador: 'Morador', proprietario: 'Proprietário' };
   const params = new URLSearchParams(location.search);
-  let app = null, contatos = null, nome = 'Portaria';
+  let app = null, contatos = null, nome = 'Portaria', senha = '';
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const temBlocos = c => !!(c && Array.isArray(c.blocos) && c.blocos.some(Boolean));
@@ -11,17 +11,38 @@
 
   function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3500); }
 
-  function entrar() {
-    nome = ($('#p-nome').value || 'Portaria').trim();
-    sessionStorage.setItem('interfone.porteiro', nome);
+  function headersPortaria(extra) {
+    return Object.assign({ 'X-Portaria-Senha': senha }, extra || {});
+  }
+  function abrirPainel() {
+    sessionStorage.setItem('interfone.porteiro', JSON.stringify({ nome, senha }));
     $('#tela-entrada').hidden = true; $('#tela-painel').hidden = false;
     $('#subtitulo').textContent = 'Logado como ' + nome;
     document.title = 'Interfone Higino — Portaria (' + nome + ')';
+    carregarContatos();
+    carregarHistorico();
+    carregarAvisos();
+  }
+  function mostrarErroEntrada(texto) {
+    const el = $('#p-erro'); if (el) el.textContent = texto || '';
+    const btn = $('#p-entrar'); if (btn) { btn.disabled = false; btn.textContent = 'Abrir painel e receber chamadas'; }
+  }
+  function entrar() {
+    nome = ($('#p-nome').value || 'Portaria').trim();
+    senha = ($('#p-senha') && $('#p-senha').value || '').trim();
+    mostrarErroEntrada('');
+    if (!senha) { mostrarErroEntrada('Informe a senha.'); return; }
+    const btn = $('#p-entrar'); if (btn) { btn.disabled = true; btn.textContent = 'Entrando…'; }
+    if (app) { app.parar(); app = null; }
     app = new Interfone({
       kind: 'portaria',
-      hello: () => ({ kind: 'portaria', nome }),
+      hello: () => ({ kind: 'portaria', nome, senha }),
       onEvent: (tipo, d) => {
-        if (tipo === 'conexao') { const p = $('#pill-conexao'); p.hidden = false; p.textContent = d ? 'online' : 'offline'; p.className = 'pill ' + (d ? 'on' : 'off'); if (d) { carregarContatos(); carregarHistorico(); carregarAvisos(); } }
+        if (tipo === 'conexao') {
+          const p = $('#pill-conexao'); p.hidden = false; p.textContent = d ? 'online' : 'offline'; p.className = 'pill ' + (d ? 'on' : 'off');
+          if (d) abrirPainel();
+        }
+        else if (tipo === 'erro' && d.codigo === 'senha_invalida') { mostrarErroEntrada('Senha incorreta'); }
         else if (tipo === 'toast') toast(d.texto);
         else if (tipo === 'contatos:update') carregarContatos();
         else if (tipo === 'historico:novo') carregarHistorico();
@@ -31,10 +52,10 @@
     });
     window.interfone = app;
     app.conectar();
-    carregarContatos();
   }
   $('#p-entrar').onclick = entrar;
-  $('#p-nome').addEventListener('keydown', e => { if (e.key === 'Enter') entrar(); });
+  $('#p-nome').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ($('#p-senha') || $('#p-entrar')).focus(); } });
+  if ($('#p-senha')) $('#p-senha').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); entrar(); } });
 
   async function carregarContatos() {
     try { contatos = await (await fetch('/api/contatos')).json(); localStorage.setItem('interfone.contatos', JSON.stringify(contatos)); }
@@ -83,7 +104,7 @@
   const TENT = { atendida: 'atendeu', recusada: 'recusou', sem_resposta: 'não atendeu', offline: 'fora do ar', ocupado: 'ocupado', cancelada: 'cancelada' };
   async function carregarHistorico() {
     try {
-      const l = await (await fetch('/api/historico')).json();
+      const l = await (await fetch('/api/historico', { headers: headersPortaria() })).json();
       $('#lista-historico').innerHTML = l.length ? l.map(h => `<div class="hist-item" data-resultado="${h.resultado}"><span class="tag ${h.resultado}">${RES[h.resultado]}</span>${h.fallback ? '<span class="tag fallback">usou 2º número</span>' : ''}
         <strong>${h.de.tipo === 'portaria' ? 'Portaria' : esc(h.de.nome) + ' (' + esc(U.rotuloUnidade(h.de.apto)) + ')'} → ${h.para.tipo === 'portaria' ? 'Portaria' : esc(U.rotuloUnidade(h.para.apto))}</strong>
         <div class="tent">${U.formatarDataHoraSP(h.em)}${h.atendidaPor ? ' · atendeu: ' + esc(h.atendidaPor.nome) + ' · ' + h.duracaoSeg + 's' : ''}</div>
@@ -125,9 +146,9 @@
     const d = window.soDigitosTel ? soDigitosTel(bruto) : String(bruto || '').replace(/\D/g, '');
     if (d && (d.length < 10 || d.length > 13)) { erro.textContent = 'Telefone inválido (use DDD + número).'; return; }
     try {
-      const r = await fetch('/api/portaria/telefone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone: d }) });
+      const r = await fetch('/api/portaria/telefone', { method: 'POST', headers: headersPortaria({ 'Content-Type': 'application/json' }), body: JSON.stringify({ telefone: d, senha }) });
       const j = await r.json();
-      if (!r.ok) { erro.textContent = j.erro || 'Não foi possível salvar.'; return; }
+      if (!r.ok) { erro.textContent = j.erro || (r.status === 401 ? 'Senha incorreta' : 'Não foi possível salvar.'); return; }
       telPortariaSujo = false;
       preencherTelPortaria(j, true);
       ok.hidden = false;
@@ -136,6 +157,18 @@
   };
 
   const salvo = sessionStorage.getItem('interfone.porteiro');
-  if (salvo) { $('#p-nome').value = salvo; entrar(); }
-  else if (params.get('nome')) { $('#p-nome').value = params.get('nome'); entrar(); }
+  if (salvo) {
+    try {
+      const o = JSON.parse(salvo);
+      if (o && typeof o === 'object') {
+        if (o.nome) $('#p-nome').value = o.nome;
+        if (o.senha && $('#p-senha')) $('#p-senha').value = o.senha;
+        if (o.senha) entrar();
+      } else {
+        $('#p-nome').value = salvo; // formato antigo: só o nome
+      }
+    } catch { $('#p-nome').value = salvo; }
+  } else if (params.get('nome')) {
+    $('#p-nome').value = params.get('nome');
+  }
 })();

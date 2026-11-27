@@ -38,7 +38,7 @@ npm start          # sobe em http://localhost:5180
 - Telefone da portaria (padrão após um reinício): `PORTARIA_TELEFONE=21994036578 npm start`.
 
 ### Telefone da portaria
-No painel da portaria, preencha **Telefone da portaria (com DDD)** e toque em **Salvar**. O número é editável a qualquer momento (inclusive para apagar). Os moradores veem o telefone no cartão da Portaria e podem tocar em **Ligar pela linha**, que abre o discador do celular (`tel:+55…`). A ligação pelo interfone (**Ligar**) continua igual; quando ninguém está online no painel, o app destaca a opção de ligar pela linha.
+O painel da portaria pede uma **senha** (conferida no servidor; padrão `365`, ou a variável `PORTARIA_SENHA`). No painel, preencha **Telefone da portaria (com DDD)** e toque em **Salvar**. O número é editável a qualquer momento (inclusive para apagar). Os moradores veem o telefone no cartão da Portaria e podem tocar em **Ligar pela linha**, que abre o discador do celular (`tel:+55…`). A ligação pelo interfone (**Ligar**) continua igual; quando ninguém está online no painel, o app destaca a opção de ligar pela linha.
 
 O valor salvo no painel **sempre substitui** o padrão `PORTARIA_TELEFONE` até o servidor reiniciar. No plano **free** do Render os dados (incluindo esse número) zeram no reinício; aí volta o valor de `PORTARIA_TELEFONE`, se estiver definido no serviço. Sem essa variável, o campo fica em branco até alguém cadastrar de novo.
 
@@ -63,7 +63,7 @@ Ninguém vem pré-cadastrado: cada morador ou proprietário se registra pelo app
 
 **Preparação — 4 abas**
 
-1. **Aba 1 – Portaria:** abra `http://localhost:5180/portaria/?timeout=10`, digite um nome (ex.: "Seu José") e clique em **Abrir painel e receber chamadas**. Na aba **Chamar apto**, clique em **🔔 Ativar notificações e som de chamada** e permita.
+1. **Aba 1 – Portaria:** abra `http://localhost:5180/portaria/?timeout=10`, digite um nome (ex.: "Seu José"), a senha **365** e clique em **Abrir painel e receber chamadas**. Na aba **Chamar apto**, clique em **🔔 Ativar notificações e som de chamada** e permita.
 2. **Aba 2 – Morador 116:** abra `http://localhost:5180/morador/?timeout=10`. Em **Cadastrar**, preencha: nome *Ana Paula*, apartamento *116*, telefone *21 98888-0101*, você é *Morador*. Toque em **Cadastrar e entrar**. Clique em **🔔 Ativar notificações…** e permita.
 3. **Aba 3 – Proprietário 116:** abra outra aba em `http://localhost:5180/morador/?timeout=10`, cadastre *Paulo Dono*, apto *116*, telefone *21 97777-0101*, você é *Proprietário*. Ative as notificações.
 4. **Aba 4 – Morador 117:** outra aba em `http://localhost:5180/morador/?timeout=10`, cadastre *Bruno Lima*, apto *117*, telefone *21 98888-0102*, *Morador*.
@@ -141,7 +141,7 @@ npm run test:node   # pares WebRTC em Node (werift): prova ICE/DTLS "connected" 
 
 - **Sem TURN:** só há STUN. Em redes com NAT simétrico/firewall rígido (muito comum em 4G e redes corporativas) o áudio pode **não conectar**. Em produção é necessário um servidor **TURN** (ex.: coturn) com credenciais temporárias.
 - **Sem push real:** toque e notificação só com o app/aba aberto. Produção: FCM/APNs, PushKit/CallKit (iOS) e ConnectionService (Android).
-- **Sem autenticação forte:** sem confirmação do telefone por SMS e sem aprovação da portaria; qualquer pessoa com apto + telefone entra. O painel da portaria não tem senha.
+- **Sem autenticação forte no morador:** sem confirmação do telefone por SMS e sem aprovação da portaria; qualquer pessoa com apto + telefone entra. O painel da portaria exige senha (padrão `365`, conferida no servidor via `PORTARIA_SENHA`).
 - **Telefone não disca:** o "número" é só um cadastro; a chamada é pela internet, não pela rede telefônica.
 - **Um servidor, memória/JSON:** não escala nem tem backup; reiniciar mantém `data/data.json`, mas não há banco de dados.
 - **Chamadas 1:1 apenas;** o "grupo" é só aviso de texto para o condomínio (sem voz em grupo).
@@ -207,7 +207,7 @@ O APK sai em `app-android/build/app/outputs/flutter-apk/app-release.apk` (copie 
 - **Sem TURN:** só STUN público; em 4G/NAT restrito o áudio pode não conectar.
 - **Não testado em aparelho físico nem emulador** nesta máquina (não há emulador aqui): o que foi testado está listado abaixo; teste real de áudio, toque e tela cheia precisa ser feito no celular.
 - Só **arm64** (celulares 64 bits, praticamente todos desde 2017); não roda em emulador x86_64 — para emulador, compile sem `--target-platform` e sem o filtro de ABI do `build.gradle.kts`.
-- Cadastro sem SMS e portaria sem senha (como na versão web).
+- Cadastro de morador sem SMS; o painel da portaria pede senha (como na versão web).
 - Assinatura de debug: não é para publicar na Play Store.
 
 ### O que foi verificado (app)

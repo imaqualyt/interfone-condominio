@@ -10,6 +10,26 @@ const PORT = Number(process.env.PORT || 5180);
 const TIMEOUT_PADRAO = Number(process.env.TIMEOUT || 30); // segundos por número
 const PAPEIS = ['morador', 'proprietario'];
 const ROTULO = { morador: 'Morador', proprietario: 'Proprietário' };
+// Senha do painel da portaria. Padrão 365; em produção use a env PORTARIA_SENHA.
+const PORTARIA_SENHA = String(process.env.PORTARIA_SENHA || '365');
+
+function senhaPortariaOk(s) {
+  const a = Buffer.from(String(s == null ? '' : s).trim(), 'utf8');
+  const b = Buffer.from(PORTARIA_SENHA, 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+function senhaDaReq(req) {
+  const h = req.headers && (req.headers['x-portaria-senha'] || req.headers['X-Portaria-Senha']);
+  if (h != null && String(h).trim() !== '') return h;
+  if (req.body && req.body.senha != null) return req.body.senha;
+  return '';
+}
+function exigirSenhaPortaria(req, res) {
+  if (senhaPortariaOk(senhaDaReq(req))) return true;
+  res.status(401).json({ erro: 'Senha incorreta' });
+  return false;
+}
 
 const app = express();
 app.use(express.json());
@@ -109,6 +129,9 @@ app.get('/api/contatos', (req, res) => {
 });
 
 app.get('/api/historico', (req, res) => {
+  // Sem apto: histórico completo, só da portaria — exige senha.
+  // Com apto: o morador vê as ligações do próprio apartamento, sem senha.
+  if (!req.query.apto && !exigirSenhaPortaria(req, res)) return;
   let h = db.historico;
   if (req.query.apto) h = h.filter(x => x.de.apto === req.query.apto || x.para.apto === req.query.apto);
   res.json(h.slice(-50).reverse());
@@ -122,6 +145,7 @@ app.get('/api/avisos', (req, res) => {
 app.get('/api/config', (req, res) => res.json({ timeoutPadrao: TIMEOUT_PADRAO, stun: 'stun:stun.l.google.com:19302', ...publicPortariaTel() }));
 
 app.post('/api/portaria/telefone', (req, res) => {
+  if (!exigirSenhaPortaria(req, res)) return;
   const telefone = soDigitos(req.body && req.body.telefone);
   if (telefone && (telefone.length < 10 || telefone.length > 13)) {
     return res.status(400).json({ erro: 'Telefone inválido (use DDD + número).' });
@@ -310,6 +334,9 @@ wss.on('connection', ws => {
     let msg; try { msg = JSON.parse(raw); } catch { return; }
     if (msg.type === 'hello') {
       if (msg.kind === 'portaria') {
+        if (!senhaPortariaOk(msg.senha)) {
+          return enviar(ws, { type: 'erro', codigo: 'senha_invalida', texto: 'Senha incorreta' });
+        }
         ws.kind = 'portaria'; ws.nome = String(msg.nome || 'Portaria').slice(0, 40);
       } else {
         const u = db.usuarios.find(x => x.id === msg.userId);
