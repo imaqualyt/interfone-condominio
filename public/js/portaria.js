@@ -6,8 +6,7 @@
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const temBlocos = c => !!(c && Array.isArray(c.blocos) && c.blocos.some(Boolean));
-  const andarDe = apto => { const n = parseInt(String(apto), 10); return Number.isFinite(n) && n >= 100 ? Math.floor(n / 100) : 0; };
-  const rotuloAndar = n => n ? n + 'º andar' : 'Outros';
+  const U = window.Unidades;
   const destinoAviso = a => (!a.bloco || a.bloco === 'todos') ? 'todo o condomínio' : 'bloco ' + a.bloco;
 
   function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3500); }
@@ -55,7 +54,7 @@
     preencherTelPortaria(contatos, false);
   }
   function cardApto(a) {
-    return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">Apto ${esc(a.apto)}</span>${a.bloco ? ' <span class="apto-bloco">Bloco ' + esc(a.bloco) + '</span>' : ''}</div>
+    return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">${esc(U.rotuloUnidade(a.apto))}</span>${a.bloco ? ' <span class="apto-bloco">Bloco ' + esc(a.bloco) + '</span>' : ''}</div>
         <button class="ligar-apto precisa-rede" data-apto="${esc(a.apto)}" ${a.moradores.length ? '' : 'disabled'} type="button">📞 Chamar</button></div>
         ${a.moradores.length ? a.moradores.map((m, i) => `<div class="pessoa"><span class="dot ${m.online ? 'on' : ''}"></span><div class="info">${i + 1}º · ${esc(m.nome)}<small>${ROTULO[m.papel]} · ${esc(m.telefone)} · ${m.online ? 'online' : 'offline'}</small></div></div>`).join('') : '<div class="pessoa"><div class="info"><small>Ninguém cadastrado</small></div></div>'}
       </div>`;
@@ -63,13 +62,13 @@
   function desenharAptos() {
     if (!contatos) return;
     const q = $('#busca').value.trim();
-    const lista = contatos.apartamentos.filter(a => !q || a.apto.includes(q));
+    const lista = contatos.apartamentos.filter(a => U.corresponde(a.apto, q));
     if (!lista.length) { $('#lista-aptos').innerHTML = '<div class="vazio">Nenhum apartamento encontrado.</div>'; return; }
     const grupos = new Map();
     for (const a of lista) {
       const usarBloco = temBlocos(contatos);
-      const key = usarBloco ? (a.bloco || '') : String(andarDe(a.apto));
-      const titulo = usarBloco ? (a.bloco ? 'Bloco ' + a.bloco : '') : rotuloAndar(andarDe(a.apto));
+      const key = usarBloco ? (a.bloco || '') : U.chaveGrupo(a.apto);
+      const titulo = usarBloco ? (a.bloco ? 'Bloco ' + a.bloco : '') : U.rotuloGrupo(key);
       if (!grupos.has(key)) grupos.set(key, { titulo, aptos: [] });
       grupos.get(key).aptos.push(a);
     }
@@ -78,16 +77,16 @@
     ).join('');
   }
   $('#busca').oninput = desenharAptos;
-  $('#lista-aptos').onclick = e => { const b = e.target.closest('.ligar-apto'); if (b) app.ligar({ tipo: 'apto', apto: b.dataset.apto }, 'Apto ' + b.dataset.apto); };
+  $('#lista-aptos').onclick = e => { const b = e.target.closest('.ligar-apto'); if (b) app.ligar({ tipo: 'apto', apto: b.dataset.apto }, U.rotuloUnidade(b.dataset.apto)); };
 
-  const RES = { atendida: 'Atendida', indisponivel: 'Apto indisponível', cancelada: 'Cancelada' };
+  const RES = { atendida: 'Atendida', indisponivel: 'Indisponível', cancelada: 'Não atendida' };
   const TENT = { atendida: 'atendeu', recusada: 'recusou', sem_resposta: 'não atendeu', offline: 'fora do ar', ocupado: 'ocupado', cancelada: 'cancelada' };
   async function carregarHistorico() {
     try {
       const l = await (await fetch('/api/historico')).json();
       $('#lista-historico').innerHTML = l.length ? l.map(h => `<div class="hist-item" data-resultado="${h.resultado}"><span class="tag ${h.resultado}">${RES[h.resultado]}</span>${h.fallback ? '<span class="tag fallback">usou 2º número</span>' : ''}
-        <strong>${h.de.tipo === 'portaria' ? 'Portaria' : esc(h.de.nome) + ' (apto ' + esc(h.de.apto) + ')'} → ${h.para.tipo === 'portaria' ? 'Portaria' : 'apto ' + esc(h.para.apto)}</strong>
-        <div class="tent">${new Date(h.em).toLocaleString('pt-BR')}${h.atendidaPor ? ' · atendeu: ' + esc(h.atendidaPor.nome) + ' · ' + h.duracaoSeg + 's' : ''}</div>
+        <strong>${h.de.tipo === 'portaria' ? 'Portaria' : esc(h.de.nome) + ' (' + esc(U.rotuloUnidade(h.de.apto)) + ')'} → ${h.para.tipo === 'portaria' ? 'Portaria' : esc(U.rotuloUnidade(h.para.apto))}</strong>
+        <div class="tent">${U.formatarDataHoraSP(h.em)}${h.atendidaPor ? ' · atendeu: ' + esc(h.atendidaPor.nome) + ' · ' + h.duracaoSeg + 's' : ''}</div>
         <div class="tent">${h.tentativas.map((t, i) => `${i + 1}º ${esc(t.nome)}${t.telefone ? ' ' + esc(t.telefone) : ''}: ${TENT[t.resultado] || '—'}`).join(' → ') || 'sem destinatários'}</div></div>`).join('') : '<div class="vazio">Sem chamadas ainda.</div>';
     } catch {}
   }
@@ -95,7 +94,7 @@
   async function carregarAvisos() {
     try {
       const l = await (await fetch('/api/avisos')).json();
-      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${esc(destinoAviso(a))} · ${new Date(a.em).toLocaleString('pt-BR')}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
+      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${esc(destinoAviso(a))} · ${U.formatarDataHoraSP(a.em)}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
     } catch {}
   }
   $('#aviso-enviar').onclick = () => { const t = $('#aviso-texto').value.trim(); if (!t) return; app.enviar({ type: 'aviso', bloco: $('#aviso-bloco').value, texto: t }); $('#aviso-texto').value = ''; toast('Aviso enviado.'); };

@@ -47,14 +47,14 @@
     </div>
 
     <div id="aba-chamar">
-      <div class="card"><label for="busca" style="margin-top:0">Buscar apartamento</label>
-        <input id="busca" inputmode="numeric" placeholder="Digite o número do apto (ex.: 101)" autocomplete="off"></div>
+      <div class="card"><label for="busca" style="margin-top:0">Buscar unidade</label>
+        <input id="busca" placeholder="Buscar (ex.: 116, 5 ou LJ)" autocomplete="off"></div>
       <div id="lista-aptos"></div>
       <div class="card"><button class="sec" id="btn-notif" type="button" style="width:100%">🔔 Ativar notificações e som de chamada</button>
         <p class="dica">Toque e notificação funcionam com a aba aberta. Push real (FCM/APNs) só na versão nativa.</p></div>
     </div>
 
-    <div id="aba-historico" hidden><div class="card"><h2>Histórico de chamadas</h2><div id="lista-historico"></div></div></div>
+    <div id="aba-historico" hidden><div class="card"><h2>Histórico de chamadas</h2><p class="dica">As últimas 50 ligações, com horário de Brasília.</p><div id="lista-historico"></div></div></div>
 
     <div id="aba-avisos" hidden>
       <div class="card"><h2 id="aviso-titulo">Aviso ao condomínio</h2>
@@ -68,6 +68,7 @@
 <div id="toast" hidden></div>
 <script src="/js/pwa.js"></script>
 <script src="/js/interfone.js"></script>
+<script src="/js/unidades.js"></script>
 <script src="/js/portaria.js"></script>
 </body>
 </html>

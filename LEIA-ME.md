@@ -42,16 +42,18 @@ No painel da portaria, preencha **Telefone da portaria (com DDD)** e toque em **
 
 O valor salvo no painel **sempre substitui** o padrão `PORTARIA_TELEFONE` até o servidor reiniciar. No plano **free** do Render os dados (incluindo esse número) zeram no reinício; aí volta o valor de `PORTARIA_TELEFONE`, se estiver definido no serviço. Sem essa variável, o campo fica em branco até alguém cadastrar de novo.
 
-### Apartamentos do condomínio
-O prédio **não tem blocos**. São **184 apartamentos**, agrupados por andar (36 nos andares 1 a 4 e 40 no 5º):
+### Unidades do condomínio
+O prédio **não tem blocos**. São **175 apartamentos + 4 lojas = 179 unidades**, com os números do balanço do prédio (lista explícita em `seed.js`):
 
-- 1º andar: **101 a 136**
-- 2º andar: **201 a 236**
-- 3º andar: **301 a 336**
-- 4º andar: **401 a 436**
-- 5º andar: **501 a 540**
+- Lojas (térreo): **LJ A, LJ B, LJ C, LJ D**
+- 1º andar (21): **116, 117, 121–137, 139, 140**
+- 2º andar (37): **201–206, 208, 211–240**
+- 3º andar (40): **301–340**
+- 4º andar (39): **401–407, 409–440**
+- 5º andar (37): **501–508, 510–518, 520–523, 525–540**
+- 6º andar (1): **601**
 
-A lista fica em um só lugar: `seed.js` (`APTOS_POR_ANDAR`). Para trocar, edite esse arquivo.
+A lista fica em um só lugar: `seed.js`. Para trocar, edite esse arquivo. Lojas e apartamentos aparecem no cadastro, na agenda da portaria e nas ligações. Há busca por número ou "LJ".
 
 Ninguém vem pré-cadastrado: cada morador ou proprietário se registra pelo app. Um apartamento sem ninguém online aparece como **"Apto indisponível"** se você ligar (ou o botão **Chamar** fica desabilitado se ainda não houver cadastro).
 
@@ -62,20 +64,20 @@ Ninguém vem pré-cadastrado: cada morador ou proprietário se registra pelo app
 **Preparação — 4 abas**
 
 1. **Aba 1 – Portaria:** abra `http://localhost:5180/portaria/?timeout=10`, digite um nome (ex.: "Seu José") e clique em **Abrir painel e receber chamadas**. Na aba **Chamar apto**, clique em **🔔 Ativar notificações e som de chamada** e permita.
-2. **Aba 2 – Morador 101:** abra `http://localhost:5180/morador/?timeout=10`. Em **Cadastrar**, preencha: nome *Ana Paula*, apartamento *101*, telefone *21 98888-0101*, você é *Morador*. Toque em **Cadastrar e entrar**. Clique em **🔔 Ativar notificações…** e permita.
-3. **Aba 3 – Proprietário 101:** abra outra aba em `http://localhost:5180/morador/?timeout=10`, cadastre *Paulo Dono*, apto *101*, telefone *21 97777-0101*, você é *Proprietário*. Ative as notificações.
-4. **Aba 4 – Morador 102:** outra aba em `http://localhost:5180/morador/?timeout=10`, cadastre *Bruno Lima*, apto *102*, telefone *21 98888-0102*, *Morador*.
+2. **Aba 2 – Morador 116:** abra `http://localhost:5180/morador/?timeout=10`. Em **Cadastrar**, preencha: nome *Ana Paula*, apartamento *116*, telefone *21 98888-0101*, você é *Morador*. Toque em **Cadastrar e entrar**. Clique em **🔔 Ativar notificações…** e permita.
+3. **Aba 3 – Proprietário 116:** abra outra aba em `http://localhost:5180/morador/?timeout=10`, cadastre *Paulo Dono*, apto *116*, telefone *21 97777-0101*, você é *Proprietário*. Ative as notificações.
+4. **Aba 4 – Morador 117:** outra aba em `http://localhost:5180/morador/?timeout=10`, cadastre *Bruno Lima*, apto *117*, telefone *21 98888-0102*, *Morador*.
 
-**Teste 1 — Porteiro chama o apto 101 e o morador atende (voz)**
+**Teste 1 — Porteiro chama o apto 116 e o morador atende (voz)**
 
-1. Na **Portaria**, ache o **101** (pode digitar "101" na busca) e clique em **📞 Chamar**.
+1. Na **Portaria**, ache o **116** (pode digitar "116" na busca) e clique em **📞 Chamar**.
 2. Na **aba 2 (Ana)** aparece a tela de chamada com toque e notificação. Clique em **Atender**.
 3. Os dois lados mostram **"Em chamada"** com o cronômetro; fale e ouça o áudio (com fones). Teste **Mudo** e depois **Desligar**.
 4. Em **Histórico** (Portaria) a chamada aparece como **Atendida**, sem 2º número.
 
 **Teste 2 — Ver o fallback (o ponto principal)**
 
-1. Na **Portaria**, clique em **📞 Chamar** no **101** e **NÃO atenda na aba 2 (Ana)**.
+1. Na **Portaria**, clique em **📞 Chamar** no **116** e **NÃO atenda na aba 2 (Ana)**.
 2. A portaria mostra "Chamando Morador…". Depois de **10 s** (30 s sem o `?timeout`) a chamada **some da aba da Ana** ("Chamada perdida") e **começa a tocar na aba 3 (Paulo, proprietário)**; a portaria passa a mostrar "Chamando Proprietário…".
 3. Atenda na **aba 3**: a voz conecta com o proprietário. Desligue.
 4. No **Histórico**: **Atendida** + etiqueta **usou 2º número**, com "1º Ana: não atendeu → 2º Paulo: atendeu".
@@ -83,13 +85,13 @@ Ninguém vem pré-cadastrado: cada morador ou proprietário se registra pelo app
 
 **Teste 3 — Ninguém atende → "Apto indisponível"**
 
-1. Chame o **101** de novo e não atenda em nenhuma das duas abas.
+1. Chame o **116** de novo e não atenda em nenhuma das duas abas.
 2. Depois dos dois tempos (20 s com `?timeout=10`), a portaria vê **"Apto indisponível"** e o histórico registra a chamada como indisponível, com as duas tentativas "não atendeu".
 3. Cadastre alguém no **201**, saia desse cadastro (ou feche a aba) e chame o **201** pela portaria: "Apto indisponível" aparece **imediatamente**, com "fora do ar".
 
 **Teste 4 — Morador ↔ morador e morador → portaria**
 
-1. Na **aba 4 (Bruno, apto 102)**, em **Contatos**, clique em **📞 Ligar** no **Apto 101**. Toca no morador (Ana) e, se não atender, no proprietário (Paulo), como na portaria.
+1. Na **aba 4 (Bruno, apto 117)**, em **Contatos**, clique em **📞 Ligar** no **Apto 116**. Toca no morador (Ana) e, se não atender, no proprietário (Paulo), como na portaria.
 2. Na aba 4, clique em **Ligar** no cartão **🛎️ Portaria**: a chamada toca no painel da portaria (em todas as abas de portaria abertas — quem atender primeiro fica com ela).
 3. Chamada de um morador para o **próprio apartamento** toca no *outro* número do apto (o próprio aparelho é pulado).
 
@@ -179,10 +181,10 @@ Este protótipo permite HTTP sem criptografia (`network_security_config.xml`) s�
 ### Testar com dois celulares + a portaria
 Pré-requisito: o servidor rodando no computador (`npm start`) e os celulares no mesmo Wi-Fi apontando para `http://IP-DO-COMPUTADOR:5180`.
 1. **Portaria:** no computador abra `http://localhost:5180/portaria/?timeout=10` (ou instale o APK num 3º aparelho e escolha **Portaria**).
-2. **Celular 1:** abra o app › **Morador ou proprietário** › **Cadastrar**: *Ana Paula*, apto *101*, *21 98888-0101*, **Morador**.
-3. **Celular 2:** **Cadastrar**: *Paulo Dono*, apto *101*, *21 97777-0101*, **Proprietário**.
-4. **Atendida:** na portaria, chame o **101** › toca no celular 1 (tela de chamada / notificação em tela cheia) › **Atender** › fale (teste **Mudo** e **Viva-voz**) › **Desligar**.
-5. **Fallback:** chame o **101** e **não atenda no celular 1**. Depois de 10 s ele mostra "Chamada perdida" e **o celular 2 toca** com o selo "Você é o 2º número deste apto". Atenda no celular 2. No histórico: "usou 2º número".
+2. **Celular 1:** abra o app › **Morador ou proprietário** › **Cadastrar**: *Ana Paula*, apto *116*, *21 98888-0101*, **Morador**.
+3. **Celular 2:** **Cadastrar**: *Paulo Dono*, apto *116*, *21 97777-0101*, **Proprietário**.
+4. **Atendida:** na portaria, chame o **116** › toca no celular 1 (tela de chamada / notificação em tela cheia) › **Atender** › fale (teste **Mudo** e **Viva-voz**) › **Desligar**.
+5. **Fallback:** chame o **116** e **não atenda no celular 1**. Depois de 10 s ele mostra "Chamada perdida" e **o celular 2 toca** com o selo "Você é o 2º número deste apto". Atenda no celular 2. No histórico: "usou 2º número".
 6. **Recusa:** chame de novo e toque **Recusar** no celular 1 → o celular 2 toca na hora.
 7. **Indisponível:** não atenda em nenhum → a portaria vê **"Apto indisponível"**.
 8. **Morador → portaria:** no celular 1, **Ligar** no cartão **Portaria**.

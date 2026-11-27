@@ -30,7 +30,9 @@
     <form id="form-cad" class="card precisa-rede">
       <h2>Cadastro do morador</h2>
       <label for="c-nome">Nome</label><input id="c-nome" autocomplete="name" placeholder="Ex.: Ana Paula" required>
-      <label for="c-apto">Apartamento</label><select id="c-apto" required></select>
+      <label for="c-apto-busca">Apartamento ou loja</label>
+      <input id="c-apto-busca" placeholder="Buscar (ex.: 116 ou LJ)" autocomplete="off">
+      <select id="c-apto" required></select>
       <label for="c-tel">Telefone (com DDD)</label><input id="c-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="21 98888-0101" required>
       <label for="c-papel">Você é</label>
       <select id="c-papel"><option value="morador">Morador (1º número a tocar)</option><option value="proprietario">Proprietário (2º número a tocar)</option></select>
@@ -40,7 +42,9 @@
     </form>
     <form id="form-ent" class="card precisa-rede" hidden>
       <h2>Entrar</h2>
-      <label for="e-apto">Apartamento</label><select id="e-apto"></select>
+      <label for="e-apto-busca">Apartamento ou loja</label>
+      <input id="e-apto-busca" placeholder="Buscar (ex.: 116 ou LJ)" autocomplete="off">
+      <select id="e-apto"></select>
       <label for="e-tel">Telefone cadastrado</label><input id="e-tel" type="tel" inputmode="tel" placeholder="21 98888-0101" required>
       <button type="submit" style="width:100%;margin-top:10px">Entrar</button>
       <div class="erro" id="erro-ent"></div>
@@ -57,7 +61,7 @@
 
     <div id="aba-contatos">
       <div class="card portaria-card" id="card-portaria"><div><strong>🛎️ Portaria</strong><div class="dica" style="color:#ccfbf1" id="portaria-status">…</div><div id="portaria-fone" class="portaria-fone" hidden></div></div><div class="portaria-acoes"><button id="ligar-portaria" class="precisa-rede" type="button">Ligar</button><a id="ligar-linha" class="btn ligar-linha" hidden>Ligar pela linha</a></div></div>
-      <input id="busca-morador" inputmode="numeric" placeholder="Buscar apartamento (ex.: 101)" autocomplete="off" style="width:100%;box-sizing:border-box;margin:8px 0">
+      <input id="busca-morador" placeholder="Buscar unidade (ex.: 116 ou LJ)" autocomplete="off" style="width:100%;box-sizing:border-box;margin:8px 0">
       <div id="lista-contatos"></div>
       <div class="card"><button class="sec" id="btn-notif" type="button" style="width:100%">🔔 Ativar notificações e som de chamada</button>
         <p class="dica">Notificações e toque funcionam com a aba/app aberto. Push de verdade (app fechado) só na versão nativa.</p>
@@ -78,6 +82,7 @@
 <div id="toast" hidden></div>
 <script src="/js/pwa.js"></script>
 <script src="/js/interfone.js"></script>
+<script src="/js/unidades.js"></script>
 <script src="/js/morador.js"></script>
 </body>
 </html>

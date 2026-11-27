@@ -4,7 +4,7 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
-const { db, salvar, blocoDe, aptoExiste, apartamentos } = require('./store');
+const { db, salvar, blocoDe, aptoExiste, normalizarUnidade, apartamentos } = require('./store');
 
 const PORT = Number(process.env.PORT || 5180);
 const TIMEOUT_PADRAO = Number(process.env.TIMEOUT || 30); // segundos por número
@@ -61,7 +61,7 @@ function transmitirPresenca() {
 // ---------------------------------------------------------------- API REST
 app.post('/api/registrar', (req, res) => {
   const nome = String(req.body.nome || '').trim();
-  const apto = String(req.body.apto || '').trim();
+  const apto = normalizarUnidade(req.body.apto || '');
   const papel = String(req.body.papel || '');
   const telefone = soDigitos(req.body.telefone);
   if (nome.length < 2) return res.status(400).json({ erro: 'Informe seu nome.' });
@@ -83,7 +83,7 @@ app.post('/api/registrar', (req, res) => {
 });
 
 app.post('/api/entrar', (req, res) => {
-  const apto = String(req.body.apto || '').trim();
+  const apto = normalizarUnidade(req.body.apto || '');
   const telefone = soDigitos(req.body.telefone);
   const u = db.usuarios.find(x => x.apto === apto && x.telefone === telefone);
   if (!u) return res.status(404).json({ erro: 'Cadastro não encontrado. Confira apartamento e telefone.' });
@@ -111,7 +111,7 @@ app.get('/api/contatos', (req, res) => {
 app.get('/api/historico', (req, res) => {
   let h = db.historico;
   if (req.query.apto) h = h.filter(x => x.de.apto === req.query.apto || x.para.apto === req.query.apto);
-  res.json(h.slice(-100).reverse());
+  res.json(h.slice(-50).reverse());
 });
 
 app.get('/api/avisos', (req, res) => {

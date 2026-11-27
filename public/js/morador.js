@@ -5,24 +5,37 @@
   const params = new URLSearchParams(location.search);
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const U = window.Unidades;
   const temBlocos = c => !!(c && Array.isArray(c.blocos) && c.blocos.some(Boolean));
-  const andarDe = apto => { const n = parseInt(String(apto), 10); return Number.isFinite(n) && n >= 100 ? Math.floor(n / 100) : 0; };
-  const rotuloAndar = n => n ? n + 'º andar' : 'Outros';
   const destinoAviso = a => (!a.bloco || a.bloco === 'todos') ? 'todo o condomínio' : 'bloco ' + a.bloco;
-  const rotuloApto = a => `Apto ${a.apto}` + (a.bloco ? ` · Bloco ${a.bloco}` : '');
+  const rotuloApto = a => U.rotuloUnidade(a.apto) + (a.bloco ? ` · Bloco ${a.bloco}` : '');
+  let listaUnidades = [];
 
   function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3500); }
   const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.erro || 'Erro'); return j; });
 
   // ---------- autenticação
+  function preencherSelects() {
+    const filtra = q => listaUnidades.filter(a => U.corresponde(a.apto, q));
+    const html = lista => U.opcoesAgrupadas(lista, esc);
+    const prevC = $('#c-apto').value, prevE = $('#e-apto').value;
+    $('#c-apto').innerHTML = html(filtra($('#c-apto-busca') ? $('#c-apto-busca').value : ''));
+    $('#e-apto').innerHTML = html(filtra($('#e-apto-busca') ? $('#e-apto-busca').value : ''));
+    if ([...$('#c-apto').options].some(o => o.value === prevC)) $('#c-apto').value = prevC;
+    if ([...$('#e-apto').options].some(o => o.value === prevE)) $('#e-apto').value = prevE;
+  }
   async function carregarAptos() {
     try {
-      const l = await (await fetch('/api/apartamentos')).json();
-      const opts = l.map(a => `<option value="${a.apto}">${rotuloApto(a)}</option>`).join('');
-      $('#c-apto').innerHTML = opts; $('#e-apto').innerHTML = opts;
-      localStorage.setItem('interfone.aptos', opts);
-    } catch { const o = localStorage.getItem('interfone.aptos'); if (o) { $('#c-apto').innerHTML = o; $('#e-apto').innerHTML = o; } }
+      listaUnidades = await (await fetch('/api/apartamentos')).json();
+      localStorage.setItem('interfone.aptos.json', JSON.stringify(listaUnidades));
+      preencherSelects();
+    } catch {
+      try { listaUnidades = JSON.parse(localStorage.getItem('interfone.aptos.json') || '[]'); } catch { listaUnidades = []; }
+      if (listaUnidades.length) preencherSelects();
+    }
   }
+  if ($('#c-apto-busca')) $('#c-apto-busca').oninput = preencherSelects;
+  if ($('#e-apto-busca')) $('#e-apto-busca').oninput = preencherSelects;
   $('#aba-cad').onclick = () => { $('#form-cad').hidden = false; $('#form-ent').hidden = true; $('#aba-cad').classList.add('ativa'); $('#aba-ent').classList.remove('ativa'); };
   $('#aba-ent').onclick = () => { $('#form-cad').hidden = true; $('#form-ent').hidden = false; $('#aba-ent').classList.add('ativa'); $('#aba-cad').classList.remove('ativa'); };
   $('#form-cad').onsubmit = async e => {
@@ -41,7 +54,7 @@
     localStorage.setItem('interfone.ultimo', JSON.stringify(u));
     $('#tela-auth').hidden = true; $('#tela-app').hidden = false;
     $('#titulo').firstChild.textContent = u.nome;
-    $('#subtitulo').textContent = `Apto ${u.apto}` + (u.bloco ? ` · Bloco ${u.bloco}` : '') + ` · ${ROTULO[u.papel]}`;
+    $('#subtitulo').textContent = U.rotuloUnidade(u.apto) + (u.bloco ? ` · Bloco ${u.bloco}` : '') + ` · ${ROTULO[u.papel]}`;
     if (u.bloco) {
       $('#nome-bloco').textContent = 'Bloco ' + u.bloco;
       $('#aviso-enviar').textContent = 'Enviar para todos do bloco';
@@ -100,17 +113,17 @@
     const card = a => {
       const outros = a.moradores.filter(m => m.id !== usuario.id);
       const proprio = a.apto === usuario.apto;
-      return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">Apto ${esc(a.apto)}</span>${proprio ? ' <span class="apto-bloco">(seu apto)</span>' : ''}</div>
+      return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">${esc(U.rotuloUnidade(a.apto))}</span>${proprio ? ' <span class="apto-bloco">(seu)</span>' : ''}</div>
           <button class="ligar-apto precisa-rede" data-apto="${esc(a.apto)}" ${outros.length ? '' : 'disabled'} type="button">📞 Ligar</button></div>
           ${a.moradores.length ? a.moradores.map(m => `<div class="pessoa"><span class="dot ${m.online ? 'on' : ''}"></span><div class="info">${esc(m.nome)}<small>${ROTULO[m.papel]} · ${esc(m.telefone)} · ${m.online ? 'online' : 'offline'}</small></div></div>`).join('') : '<div class="pessoa"><div class="info"><small>Ninguém cadastrado ainda</small></div></div>'}
         </div>`;
     };
     const grupos = new Map();
     const q = ($('#busca-morador') ? $('#busca-morador').value : '').trim();
-    for (const a of contatos.apartamentos.filter(a => !q || String(a.apto).includes(q))) {
+    for (const a of contatos.apartamentos.filter(a => U.corresponde(a.apto, q))) {
       const usarBloco = temBlocos(contatos);
-      const key = usarBloco ? (a.bloco || '') : String(andarDe(a.apto));
-      const titulo = usarBloco ? (a.bloco ? 'Bloco ' + a.bloco : '') : rotuloAndar(andarDe(a.apto));
+      const key = usarBloco ? (a.bloco || '') : U.chaveGrupo(a.apto);
+      const titulo = usarBloco ? (a.bloco ? 'Bloco ' + a.bloco : '') : U.rotuloGrupo(key);
       if (!grupos.has(key)) grupos.set(key, { titulo, aptos: [] });
       grupos.get(key).aptos.push(a);
     }
@@ -120,7 +133,7 @@
   }
   $('#lista-contatos').onclick = e => {
     const b = e.target.closest('.ligar-apto'); if (!b) return;
-    app.ligar({ tipo: 'apto', apto: b.dataset.apto }, 'Apto ' + b.dataset.apto);
+    app.ligar({ tipo: 'apto', apto: b.dataset.apto }, U.rotuloUnidade(b.dataset.apto));
   };
   $('#ligar-portaria').onclick = () => app.ligar({ tipo: 'portaria' }, 'Portaria');
   $('#btn-notif').onclick = async () => {
@@ -132,18 +145,18 @@
     try {
       const qs = usuario.bloco ? ('?bloco=' + encodeURIComponent(usuario.bloco)) : '';
       const l = await (await fetch('/api/avisos' + qs)).json();
-      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${esc(destinoAviso(a))} · ${new Date(a.em).toLocaleString('pt-BR')}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
+      $('#lista-avisos').innerHTML = l.length ? l.map(a => `<div class="aviso"><strong>${esc(a.texto)}</strong><small>${esc(a.de.nome)}${a.de.apto ? ' · apto ' + esc(a.de.apto) : ''} · ${esc(destinoAviso(a))} · ${U.formatarDataHoraSP(a.em)}</small></div>`).join('') : '<div class="vazio">Nenhum aviso ainda.</div>';
     } catch {}
   }
   $('#aviso-enviar').onclick = () => { const t = $('#aviso-texto').value.trim(); if (!t) return; app.enviar({ type: 'aviso', texto: t }); $('#aviso-texto').value = ''; toast(usuario.bloco ? 'Aviso enviado ao bloco.' : 'Aviso enviado ao condomínio.'); };
 
-  const RES = { atendida: 'Atendida', indisponivel: 'Apto indisponível', cancelada: 'Cancelada' };
+  const RES = { atendida: 'Atendida', indisponivel: 'Indisponível', cancelada: 'Não atendida' };
   async function carregarHistorico() {
     try {
       const l = await (await fetch('/api/historico?apto=' + usuario.apto)).json();
       $('#lista-historico').innerHTML = l.length ? l.map(h => `<div class="hist-item"><span class="tag ${h.resultado}">${RES[h.resultado]}</span>${h.fallback ? '<span class="tag fallback">2º número</span>' : ''}
-        <strong>${esc(h.de.nome)}${h.de.apto ? ' (apto ' + esc(h.de.apto) + ')' : ''} → ${h.para.tipo === 'portaria' ? 'Portaria' : 'apto ' + esc(h.para.apto)}</strong>
-        <div class="tent">${new Date(h.em).toLocaleString('pt-BR')}${h.atendidaPor ? ' · atendeu: ' + esc(h.atendidaPor.nome) + ' · ' + h.duracaoSeg + 's' : ''}</div></div>`).join('') : '<div class="vazio">Sem ligações ainda.</div>';
+        <strong>${esc(h.de.nome)}${h.de.apto ? ' (' + esc(U.rotuloUnidade(h.de.apto)) + ')' : ''} → ${h.para.tipo === 'portaria' ? 'Portaria' : esc(U.rotuloUnidade(h.para.apto))}</strong>
+        <div class="tent">${U.formatarDataHoraSP(h.em)}${h.atendidaPor ? ' · atendeu: ' + esc(h.atendidaPor.nome) + ' · ' + h.duracaoSeg + 's' : ''}</div></div>`).join('') : '<div class="vazio">Sem ligações ainda.</div>';
     } catch {}
   }
 

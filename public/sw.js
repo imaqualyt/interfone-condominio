@@ -1,9 +1,9 @@
 // Service worker: guarda o "casco" da interface para abrir offline.
 // Ligações NÃO funcionam offline (precisam de internet): /api e /ws nunca passam pelo cache.
-const VERSAO = 'interfone-v2';
+const VERSAO = 'interfone-v3';
 const CASCO = [
   '/', '/morador/', '/portaria/',
-  '/css/app.css', '/js/interfone.js', '/js/pwa.js', '/js/morador.js', '/js/portaria.js',
+  '/css/app.css', '/js/interfone.js', '/js/unidades.js', '/js/pwa.js', '/js/morador.js', '/js/portaria.js',
   '/manifest.json', '/manifest-portaria.json',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/icons/apple-touch-icon.png'
 ];

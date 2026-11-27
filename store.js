@@ -5,15 +5,19 @@ const seed = require('./seed');
 
 const FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'data.json');
 
+function normalizarUnidade(apto) {
+  return seed.normalizarUnidade(apto);
+}
+
 function aptoExiste(apto) {
-  return seed.apartamentos.some(x => x.apto === String(apto));
+  return seed.apartamentos.some(x => x.apto === normalizarUnidade(apto));
 }
 
 // Retorna o bloco, ou '' se o apto existe sem bloco, ou null se o apto é desconhecido.
 // Validação de existência: use aptoExiste(apto) ou `blocoDe(apto) !== null`.
 // Não use `if (!blocoDe(apto))` — string vazia (sem bloco) é válida.
 function blocoDe(apto) {
-  const a = seed.apartamentos.find(x => x.apto === String(apto));
+  const a = seed.apartamentos.find(x => x.apto === normalizarUnidade(apto));
   if (!a) return null;
   return a.bloco || '';
 }
@@ -43,4 +47,4 @@ function salvar() {
 }
 salvar();
 
-module.exports = { db, salvar, blocoDe, aptoExiste, apartamentos: seed.apartamentos, FILE };
+module.exports = { db, salvar, blocoDe, aptoExiste, normalizarUnidade, apartamentos: seed.apartamentos, FILE };
