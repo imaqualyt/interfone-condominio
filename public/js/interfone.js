@@ -4,6 +4,24 @@
   const $ = (s, el = document) => el.querySelector(s);
   const params = new URLSearchParams(location.search);
   const timeoutDemo = Number(params.get('timeout')) || null; // ?timeout=10 encurta o tempo de toque por número
+  const soDigitosTel = t => String(t || '').replace(/\D/g, '');
+  function formatarTelefoneBR(t) {
+    let d = soDigitosTel(t);
+    if (!d) return '';
+    let prefixo = '';
+    if (d.length >= 12 && d.startsWith('55')) { prefixo = '+55 '; d = d.slice(2); }
+    if (d.length === 11) return prefixo + '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+    if (d.length === 10) return prefixo + '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+    return (prefixo + d).trim();
+  }
+  function hrefTelBR(t) {
+    const d = soDigitosTel(t);
+    if (!d) return '';
+    return d.startsWith('55') ? 'tel:+' + d : 'tel:+55' + d;
+  }
+  window.formatarTelefoneBR = formatarTelefoneBR;
+  window.hrefTelBR = hrefTelBR;
+  window.soDigitosTel = soDigitosTel;
 
   class Interfone {
     constructor({ kind, hello, onEvent }) {

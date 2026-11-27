@@ -35,6 +35,12 @@ npm start          # sobe em http://localhost:5180
 - Portaria: http://localhost:5180/portaria/
 - Para voltar ao estado inicial (apaga os cadastros e o histórico): `npm run reset` (com o servidor parado ou reinicie-o depois).
 - Outra porta: `PORT=3000 npm start`. Outro tempo padrão: `TIMEOUT=15 npm start`.
+- Telefone da portaria (padrão após um reinício): `PORTARIA_TELEFONE=21994036578 npm start`.
+
+### Telefone da portaria
+No painel da portaria, preencha **Telefone da portaria (com DDD)** e toque em **Salvar**. O número é editável a qualquer momento (inclusive para apagar). Os moradores veem o telefone no cartão da Portaria e podem tocar em **Ligar pela linha**, que abre o discador do celular (`tel:+55…`). A ligação pelo interfone (**Ligar**) continua igual; quando ninguém está online no painel, o app destaca a opção de ligar pela linha.
+
+O valor salvo no painel **sempre substitui** o padrão `PORTARIA_TELEFONE` até o servidor reiniciar. No plano **free** do Render os dados (incluindo esse número) zeram no reinício; aí volta o valor de `PORTARIA_TELEFONE`, se estiver definido no serviço. Sem essa variável, o campo fica em branco até alguém cadastrar de novo.
 
 ### Apartamentos do condomínio
 O prédio **não tem blocos**. São **184 apartamentos**, agrupados por andar (36 nos andares 1 a 4 e 40 no 5º):

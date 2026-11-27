@@ -30,6 +30,16 @@
   </section>
 
   <section id="tela-painel" hidden>
+    <div class="card" id="card-tel-portaria">
+      <h2>Telefone da portaria</h2>
+      <p class="dica">Os moradores veem este número e podem ligar pela linha do celular. Pode deixar em branco. O número que você salvar aqui vale até o servidor reiniciar; depois volta o padrão, se houver.</p>
+      <div id="tel-portaria-atual" class="dica" style="margin:6px 0 4px"></div>
+      <label for="tel-portaria">Telefone da portaria (com DDD)</label>
+      <input id="tel-portaria" inputmode="tel" autocomplete="tel" placeholder="Ex.: 21 99403-6578" maxlength="20">
+      <button id="tel-portaria-salvar" type="button" style="width:100%;margin-top:8px">Salvar</button>
+      <p id="tel-portaria-ok" class="ok-msg" hidden>Número salvo. Os moradores já veem a alteração.</p>
+      <p id="tel-portaria-erro" class="erro"></p>
+    </div>
     <div class="abas">
       <button data-aba="chamar" class="ativa" type="button">Chamar apto</button>
       <button data-aba="historico" type="button">Histórico</button>

@@ -65,7 +65,7 @@
       onEvent: (tipo, d) => {
         if (tipo === 'conexao') { const p = $('#pill-conexao'); p.hidden = false; p.textContent = d ? 'online' : 'offline'; p.className = 'pill ' + (d ? 'on' : 'off'); if (d) { carregarContatos(); carregarAvisos(); carregarHistorico(); } }
         else if (tipo === 'toast') toast(d.texto);
-        else if (tipo === 'contatos:update') carregarContatos();
+        else if (tipo === 'contatos:update' || tipo === 'portaria:telefone') carregarContatos();
         else if (tipo === 'aviso') { carregarAvisos(); if (d.aviso.de.nome !== usuario.nome) { toast('📢 ' + d.aviso.texto); app.notificarTexto('Aviso — ' + d.aviso.de.nome, d.aviso.texto); } }
         else if (tipo === 'historico:novo') carregarHistorico();
         else if (tipo === 'erro' && d.codigo === 'usuario_invalido') { toast(d.texto); setTimeout(sair, 1500); }
@@ -80,7 +80,23 @@
   async function carregarContatos() {
     try { contatos = await (await fetch('/api/contatos')).json(); localStorage.setItem('interfone.contatos', JSON.stringify(contatos)); }
     catch { const c = localStorage.getItem('interfone.contatos'); if (!c) return; contatos = JSON.parse(c); }
-    $('#portaria-status').textContent = contatos.portariaOnline ? '● Atendimento disponível' : '○ Ninguém online no painel agora';
+    const online = !!contatos.portariaOnline;
+    $('#portaria-status').textContent = online ? '● Atendimento disponível' : '○ Ninguém online no painel agora';
+    const tel = contatos.portariaTelefoneDigitos || '';
+    const fone = $('#portaria-fone');
+    const linha = $('#ligar-linha');
+    const cardPortaria = $('#card-portaria');
+    if (tel) {
+      fone.hidden = false;
+      fone.textContent = 'Tel.: ' + (contatos.portariaTelefone || (window.formatarTelefoneBR ? formatarTelefoneBR(tel) : tel));
+      linha.hidden = false;
+      linha.href = window.hrefTelBR ? hrefTelBR(tel) : ('tel:+55' + tel);
+    } else {
+      fone.hidden = true;
+      linha.hidden = true;
+      linha.removeAttribute('href');
+    }
+    if (cardPortaria) cardPortaria.classList.toggle('destaque-linha', !online && !!tel);
     const card = a => {
       const outros = a.moradores.filter(m => m.id !== usuario.id);
       const proprio = a.apto === usuario.apto;

@@ -73,3 +73,13 @@ button.rb:disabled { opacity:1; }
 .grade-aptos .apto-topo { flex-wrap:wrap; }
 .grade-aptos .apto button { padding:6px 10px; font-size:.8rem; }
 .grade-aptos .info { overflow-wrap:anywhere; }
+
+.ok-msg { color: var(--ok); font-size: .9rem; margin-top: 8px; font-weight: 600; }
+.portaria-card { flex-wrap: wrap; align-items: flex-start; }
+.portaria-acoes { display: flex; flex-direction: column; gap: 8px; min-width: 140px; }
+.portaria-acoes .btn, .portaria-acoes button { text-align: center; text-decoration: none; }
+.portaria-fone { margin-top: 6px; font-weight: 700; color: #ecfdf5; }
+.ligar-linha { background: #ecfdf5 !important; color: var(--verde) !important; }
+.portaria-card.destaque-linha { box-shadow: 0 0 0 3px #fbbf24; }
+.portaria-card.destaque-linha .ligar-linha { background: #fbbf24 !important; color: #78350f !important; font-weight: 800; }
+.portaria-card.destaque-linha #portaria-fone { color: #fef3c7; }

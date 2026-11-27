@@ -27,6 +27,7 @@
         else if (tipo === 'contatos:update') carregarContatos();
         else if (tipo === 'historico:novo') carregarHistorico();
         else if (tipo === 'aviso') { carregarAvisos(); }
+        else if (tipo === 'portaria:telefone') preencherTelPortaria(d, false);
       }
     });
     window.interfone = app;
@@ -51,6 +52,7 @@
       if (titulo) titulo.textContent = 'Aviso ao condomínio';
     }
     desenharAptos();
+    preencherTelPortaria(contatos, false);
   }
   function cardApto(a) {
     return `<div class="apto" data-apto="${esc(a.apto)}"><div class="apto-topo"><div><span class="apto-nome">Apto ${esc(a.apto)}</span>${a.bloco ? ' <span class="apto-bloco">Bloco ' + esc(a.bloco) + '</span>' : ''}</div>
@@ -105,6 +107,34 @@
     document.querySelectorAll('.abas [data-aba]').forEach(x => x.classList.toggle('ativa', x === b));
     ['chamar', 'historico', 'avisos'].forEach(n => $('#aba-' + n).hidden = n !== b.dataset.aba);
   });
+
+  let telPortariaSujo = false;
+  function preencherTelPortaria(d, forcar) {
+    if (!d) return;
+    const fmt = d.portariaTelefone || (window.formatarTelefoneBR ? formatarTelefoneBR(d.portariaTelefoneDigitos) : '') || '';
+    const atual = $('#tel-portaria-atual');
+    if (atual) atual.textContent = fmt ? ('Número atual: ' + fmt) : 'Nenhum número cadastrado ainda.';
+    const input = $('#tel-portaria');
+    if (input && (forcar || !telPortariaSujo)) input.value = fmt;
+  }
+  const inputTel = $('#tel-portaria');
+  if (inputTel) inputTel.addEventListener('input', () => { telPortariaSujo = true; $('#tel-portaria-ok').hidden = true; $('#tel-portaria-erro').textContent = ''; });
+  $('#tel-portaria-salvar').onclick = async () => {
+    const erro = $('#tel-portaria-erro'); const ok = $('#tel-portaria-ok');
+    erro.textContent = ''; ok.hidden = true;
+    const bruto = $('#tel-portaria').value;
+    const d = window.soDigitosTel ? soDigitosTel(bruto) : String(bruto || '').replace(/\D/g, '');
+    if (d && (d.length < 10 || d.length > 13)) { erro.textContent = 'Telefone inválido (use DDD + número).'; return; }
+    try {
+      const r = await fetch('/api/portaria/telefone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone: d }) });
+      const j = await r.json();
+      if (!r.ok) { erro.textContent = j.erro || 'Não foi possível salvar.'; return; }
+      telPortariaSujo = false;
+      preencherTelPortaria(j, true);
+      ok.hidden = false;
+      toast('Telefone da portaria salvo.');
+    } catch (e) { erro.textContent = 'Sem conexão com o servidor.'; }
+  };
 
   const salvo = sessionStorage.getItem('interfone.porteiro');
   if (salvo) { $('#p-nome').value = salvo; entrar(); }

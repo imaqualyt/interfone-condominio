@@ -18,6 +18,27 @@ const uid = () => crypto.randomBytes(6).toString('hex');
 const mascarar = t => '••••' + String(t).replace(/\D/g, '').slice(-4);
 const soDigitos = t => String(t || '').replace(/\D/g, '');
 
+// Número da portaria: o valor salvo no painel (db.portariaTelefone) sempre prevalece.
+// PORTARIA_TELEFONE só entra como padrão quando ainda não houve cadastro nesta instância
+// (no plano free do Render o arquivo zera no reinício, e o padrão volta a valer).
+function portariaTelefoneAtual() {
+  if (Object.prototype.hasOwnProperty.call(db, 'portariaTelefone')) return soDigitos(db.portariaTelefone);
+  return soDigitos(process.env.PORTARIA_TELEFONE || '');
+}
+function formatarTelefone(t) {
+  let d = soDigitos(t);
+  if (!d) return '';
+  let prefixo = '';
+  if (d.length >= 12 && d.startsWith('55')) { prefixo = '+55 '; d = d.slice(2); }
+  if (d.length === 11) return `${prefixo}(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `${prefixo}(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return (prefixo + d).trim();
+}
+function publicPortariaTel() {
+  const d = portariaTelefoneAtual();
+  return { portariaTelefone: formatarTelefone(d), portariaTelefoneDigitos: d };
+}
+
 // ---------------------------------------------------------------- conexões
 const conexoes = new Set(); // ws autenticados
 const chamadas = new Map(); // id -> chamada
@@ -84,7 +105,7 @@ app.get('/api/contatos', (req, res) => {
     return item;
   });
   const blocos = [...new Set(apartamentos.map(a => a.bloco).filter(Boolean))];
-  res.json({ apartamentos: lista, portariaOnline: socketsPortaria().length > 0, blocos });
+  res.json({ apartamentos: lista, portariaOnline: socketsPortaria().length > 0, blocos, ...publicPortariaTel() });
 });
 
 app.get('/api/historico', (req, res) => {
@@ -98,7 +119,21 @@ app.get('/api/avisos', (req, res) => {
   res.json(db.avisos.filter(a => !b || a.bloco === 'todos' || a.bloco === b).slice(-30).reverse());
 });
 
-app.get('/api/config', (req, res) => res.json({ timeoutPadrao: TIMEOUT_PADRAO, stun: 'stun:stun.l.google.com:19302' }));
+app.get('/api/config', (req, res) => res.json({ timeoutPadrao: TIMEOUT_PADRAO, stun: 'stun:stun.l.google.com:19302', ...publicPortariaTel() }));
+
+app.post('/api/portaria/telefone', (req, res) => {
+  const telefone = soDigitos(req.body && req.body.telefone);
+  if (telefone && (telefone.length < 10 || telefone.length > 13)) {
+    return res.status(400).json({ erro: 'Telefone inválido (use DDD + número).' });
+  }
+  // Grava inclusive vazio: o que o painel salvou substitui PORTARIA_TELEFONE até o reinício.
+  db.portariaTelefone = telefone;
+  salvar();
+  const payload = publicPortariaTel();
+  conexoes.forEach(w => enviar(w, { type: 'portaria:telefone', ...payload }));
+  transmitirPresenca();
+  res.json(payload);
+});
 
 // ---------------------------------------------------------------- arquivos estáticos / PWA
 app.get('/sw.js', (req, res) => {
