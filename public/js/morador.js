@@ -76,11 +76,20 @@
       kind: 'morador',
       hello: () => ({ kind: 'morador', userId: usuario.id }),
       onEvent: (tipo, d) => {
-        if (tipo === 'conexao') { const p = $('#pill-conexao'); p.hidden = false; p.textContent = d ? 'online' : 'offline'; p.className = 'pill ' + (d ? 'on' : 'off'); if (d) { carregarContatos(); carregarAvisos(); carregarHistorico(); } }
+        if (tipo === 'conexao') {
+          const p = $('#pill-conexao'); p.hidden = false; p.textContent = d ? 'online' : 'offline'; p.className = 'pill ' + (d ? 'on' : 'off');
+          if (d) {
+            carregarContatos(); carregarAvisos(); carregarHistorico();
+            if (window.InterfoneChat) InterfoneChat.iniciar({ papel: 'morador', apto: usuario.apto, userId: usuario.id });
+          }
+        }
         else if (tipo === 'toast') toast(d.texto);
         else if (tipo === 'contatos:update' || tipo === 'portaria:telefone') carregarContatos();
         else if (tipo === 'aviso') { carregarAvisos(); if (d.aviso.de.nome !== usuario.nome) { toast('📢 ' + d.aviso.texto); app.notificarTexto('Aviso — ' + d.aviso.de.nome, d.aviso.texto); } }
         else if (tipo === 'historico:novo') carregarHistorico();
+        else if (tipo === 'mensagem:nova' || tipo === 'mensagem:nao-lidas') {
+          if (window.InterfoneChat) InterfoneChat.onEvent(tipo, d);
+        }
         else if (tipo === 'erro' && d.codigo === 'usuario_invalido') { toast(d.texto); setTimeout(sair, 1500); }
       }
     });
@@ -163,7 +172,7 @@
   document.querySelectorAll('.abas [data-aba]').forEach(b => b.onclick = () => {
     abaAtual = b.dataset.aba;
     document.querySelectorAll('.abas [data-aba]').forEach(x => x.classList.toggle('ativa', x === b));
-    ['contatos', 'avisos', 'historico'].forEach(n => $('#aba-' + n).hidden = n !== abaAtual);
+    ['contatos', 'mensagens', 'avisos', 'historico'].forEach(n => { const el = $('#aba-' + n); if (el) el.hidden = n !== abaAtual; });
   });
 
   // ---------- início

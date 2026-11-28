@@ -83,3 +83,54 @@ button.rb:disabled { opacity:1; }
 .portaria-card.destaque-linha { box-shadow: 0 0 0 3px #fbbf24; }
 .portaria-card.destaque-linha .ligar-linha { background: #fbbf24 !important; color: #78350f !important; font-weight: 800; }
 .portaria-card.destaque-linha #portaria-fone { color: #fef3c7; }
+
+
+/* ---- recados morador ↔ portaria ---- */
+.abas button { position: relative; }
+.cracha, [data-chat-cracha] {
+  display: inline-block; min-width: 1.2em; padding: 0 5px; margin-left: 6px;
+  border-radius: 99px; background: #dc2626; color: #fff; font-size: .7rem; font-weight: 800;
+  line-height: 1.4; text-align: center; vertical-align: middle;
+}
+.abas button [data-chat-cracha] { position: absolute; top: 2px; right: 2px; margin: 0; }
+.chat-layout { display: flex; flex-direction: column; gap: 10px; }
+.chat-lista { display: flex; flex-direction: column; gap: 6px; }
+.chat-conv {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  text-align: left; padding: 10px 12px; border: 1px solid var(--borda, #334); background: transparent; color: inherit;
+  border-radius: 10px; cursor: pointer;
+}
+.chat-conv.ativa { outline: 2px solid #fbbf24; }
+.chat-prev { font-size: .8rem; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.chat-abrir-apto { display: flex; gap: 8px; margin-bottom: 8px; }
+.chat-abrir-apto input { flex: 1; }
+.chat-thread { display: flex; flex-direction: column; min-height: 420px; }
+.chat-topo { padding: 8px 4px 10px; font-size: 1.05rem; }
+.chat-msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 55vh; padding: 4px; }
+.chat-bolha { max-width: 85%; padding: 8px 12px; border-radius: 14px; }
+.chat-bolha.eu { align-self: flex-end; background: #065f46; color: #ecfdf5; }
+.chat-bolha.eles { align-self: flex-start; background: #1f2937; color: #e5e7eb; }
+.chat-meta { font-size: .72rem; opacity: .8; margin-bottom: 4px; }
+.chat-texto { white-space: pre-wrap; word-break: break-word; }
+.chat-foto { display: block; max-width: 220px; max-height: 220px; border-radius: 10px; cursor: zoom-in; margin-top: 4px; }
+.chat-audio { width: 220px; margin-top: 4px; }
+.chat-arq { display: inline-block; margin-top: 4px; color: #fde68a; }
+.chat-composer { display: flex; gap: 8px; align-items: center; position: relative; margin-top: 10px; }
+.chat-composer input { flex: 1; }
+.chat-anexo, .chat-rec { flex: none; }
+.chat-menu {
+  position: absolute; bottom: 48px; left: 0; background: #111827; border: 1px solid #374151;
+  border-radius: 10px; padding: 6px; display: flex; flex-direction: column; z-index: 5; min-width: 220px;
+}
+.chat-menu button { text-align: left; background: transparent; border: 0; color: #e5e7eb; padding: 8px 10px; cursor: pointer; }
+.chat-menu button:hover { background: #1f2937; }
+#chat-lightbox {
+  position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 80;
+  display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out;
+}
+#chat-lightbox[hidden] { display: none; }
+#chat-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+.faixa-online {
+  width: 100%; background: #ecfdf5; color: #064e3b; font-size: .82rem; padding: 8px 14px;
+}
+.faixa-online.alerta { background: #fef3c7; color: #78350f; }

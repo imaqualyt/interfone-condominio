@@ -45,6 +45,7 @@
     </div>
     <div class="abas">
       <button data-aba="chamar" class="ativa" type="button">Chamar apto</button>
+      <button data-aba="mensagens" type="button">Mensagens <span data-chat-cracha hidden>0</span></button>
       <button data-aba="historico" type="button">Histórico</button>
       <button data-aba="avisos" type="button">Avisos</button>
     </div>
@@ -55,6 +56,14 @@
       <div id="lista-aptos"></div>
       <div class="card"><button class="sec" id="btn-notif" type="button" style="width:100%">🔔 Ativar notificações e som de chamada</button>
         <p class="dica">Toque e notificação funcionam com a aba aberta. Push real (FCM/APNs) só na versão nativa.</p></div>
+    </div>
+
+    <div id="aba-mensagens" hidden>
+      <div class="card">
+        <h2>Mensagens com os apartamentos</h2>
+        <p class="dica">Cada unidade tem um fio de recados com a portaria (texto, áudio, foto ou arquivo). As mídias ficam no banco por até 30 dias (limite de 10 MB por arquivo; o plano free do Postgres tem cerca de 1 GB no total).</p>
+        <div id="chat-raiz"></div>
+      </div>
     </div>
 
     <div id="aba-historico" hidden><div class="card"><h2>Histórico de chamadas</h2><p class="dica">As últimas 50 ligações, com horário de Brasília.</p><div id="lista-historico"></div></div></div>
@@ -72,6 +81,7 @@
 <script src="/js/pwa.js"></script>
 <script src="/js/interfone.js"></script>
 <script src="/js/unidades.js"></script>
+<script src="/js/chat.js"></script>
 <script src="/js/portaria.js"></script>
 </body>
 </html>

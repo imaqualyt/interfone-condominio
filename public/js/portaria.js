@@ -40,7 +40,10 @@
       onEvent: (tipo, d) => {
         if (tipo === 'conexao') {
           const p = $('#pill-conexao'); p.hidden = false; p.textContent = d ? 'online' : 'offline'; p.className = 'pill ' + (d ? 'on' : 'off');
-          if (d) abrirPainel();
+          if (d) {
+            abrirPainel();
+            if (window.InterfoneChat) InterfoneChat.iniciar({ papel: 'portaria', senha });
+          }
         }
         else if (tipo === 'erro' && d.codigo === 'senha_invalida') { mostrarErroEntrada('Senha incorreta'); }
         else if (tipo === 'toast') toast(d.texto);
@@ -48,6 +51,9 @@
         else if (tipo === 'historico:novo') carregarHistorico();
         else if (tipo === 'aviso') { carregarAvisos(); }
         else if (tipo === 'portaria:telefone') preencherTelPortaria(d, false);
+        else if (tipo === 'mensagem:nova' || tipo === 'mensagem:nao-lidas') {
+          if (window.InterfoneChat) InterfoneChat.onEvent(tipo, d);
+        }
       }
     });
     window.interfone = app;
@@ -125,7 +131,8 @@
   };
   document.querySelectorAll('.abas [data-aba]').forEach(b => b.onclick = () => {
     document.querySelectorAll('.abas [data-aba]').forEach(x => x.classList.toggle('ativa', x === b));
-    ['chamar', 'historico', 'avisos'].forEach(n => $('#aba-' + n).hidden = n !== b.dataset.aba);
+    ['chamar', 'mensagens', 'historico', 'avisos'].forEach(n => { const el = $('#aba-' + n); if (el) el.hidden = n !== b.dataset.aba; });
+    if (b.dataset.aba === 'mensagens' && window.InterfoneChat) InterfoneChat.carregarConversas();
   });
 
   let telPortariaSujo = false;

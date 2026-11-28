@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const seed = require('./seed');
+const persist = require('./persist');
 
 const FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'data.json');
 
@@ -36,6 +37,7 @@ function carregar() {
 
 const db = carregar();
 let timer = null;
+let persistenciaPronta = false;
 function salvar() {
   clearTimeout(timer);
   timer = setTimeout(() => {
@@ -43,8 +45,20 @@ function salvar() {
       fs.mkdirSync(path.dirname(FILE), { recursive: true });
       fs.writeFileSync(FILE, JSON.stringify(db, null, 2));
     } catch (e) { console.error('Falha ao salvar dados:', e.message); }
+    if (persistenciaPronta) {
+      persist.salvarEstado(db).catch(e => console.error('Falha ao salvar no Postgres:', e.message));
+    }
   }, 100);
 }
 salvar();
 
-module.exports = { db, salvar, blocoDe, aptoExiste, normalizarUnidade, apartamentos: seed.apartamentos, FILE };
+async function iniciarPersistencia() {
+  try {
+    await persist.iniciar(db);
+  } catch (e) {
+    console.error('Falha ao iniciar Postgres (seguindo com data.json):', e.message);
+  }
+  persistenciaPronta = true;
+}
+
+module.exports = { db, salvar, blocoDe, aptoExiste, normalizarUnidade, apartamentos: seed.apartamentos, FILE, iniciarPersistencia, persist };

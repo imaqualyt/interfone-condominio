@@ -38,9 +38,11 @@ npm start          # sobe em http://localhost:5180
 - Telefone da portaria (padrão após um reinício): `PORTARIA_TELEFONE=21994036578 npm start`.
 
 ### Telefone da portaria
+Há um fio de **recados** (texto, áudio, foto ou arquivo) entre cada apartamento e a portaria, no site e no app, em tempo real pelo mesmo WebSocket, com aviso de não lidas. As mídias ficam no Postgres (até 10 MB, expiram em ~30 dias).
+
 O painel da portaria pede uma **senha** (conferida no servidor; padrão `365`, ou a variável `PORTARIA_SENHA`). No painel, preencha **Telefone da portaria (com DDD)** e toque em **Salvar**. O número é editável a qualquer momento (inclusive para apagar). Os moradores veem o telefone no cartão da Portaria e podem tocar em **Ligar pela linha**, que abre o discador do celular (`tel:+55…`). A ligação pelo interfone (**Ligar**) continua igual; quando ninguém está online no painel, o app destaca a opção de ligar pela linha.
 
-O valor salvo no painel **sempre substitui** o padrão `PORTARIA_TELEFONE` até o servidor reiniciar. No plano **free** do Render os dados (incluindo esse número) zeram no reinício; aí volta o valor de `PORTARIA_TELEFONE`, se estiver definido no serviço. Sem essa variável, o campo fica em branco até alguém cadastrar de novo.
+O valor salvo no painel **sempre substitui** o padrão `PORTARIA_TELEFONE`. Com `DATABASE_URL` (Postgres) cadastros, histórico, telefone da portaria e recados sobrevivem ao sono/reinício do plano free. Sem o banco, no plano **free** do Render os dados em `data.json` zeram no reinício e volta o valor de `PORTARIA_TELEFONE`.
 
 ### Unidades do condomínio
 O prédio **não tem blocos**. São **178 unidades de apartamento + 4 lojas = 182 unidades** (lista explícita em `seed.js`). Alguns números que faltavam no balanço (inadimplência) foram incluídos; 536 e 538 formam uma unidade só:
@@ -123,9 +125,9 @@ Aqui a notificação usa a **Notification API do navegador** + toque (Web Audio)
 ## Como funciona (resumo técnico)
 
 - **Sinalização:** WebSocket em `/ws`. Mensagens: `hello`, `call:start`, `call:incoming`, `call:answer`, `call:decline`, `call:hangup`, `rtc` (SDP/ICE), `aviso`.
-- **Roteador de chamadas** (`server.js`): monta a lista de números do apto (morador → proprietário), toca em cada um com temporizador, trata recusa/offline/ocupado, registra o histórico em `data/data.json` e avisa o painel da portaria.
+- **Roteador de chamadas** (`server.js`): monta a lista de números do apto (morador → proprietário), toca em cada um com temporizador, trata recusa/offline/ocupado, registra o histórico e avisa o painel da portaria. Resultado de cada ligação é gravado no log (`[chamada] ...`).
 - **Áudio:** WebRTC ponto a ponto entre as duas pontas, usando **STUN público** `stun:stun.l.google.com:19302`. O servidor só repassa a sinalização.
-- **Dados:** em memória, gravados em `data/data.json` (apague com `npm run reset`).
+- **Dados:** com `DATABASE_URL`, cadastros, histórico, avisos, telefone da portaria e recados (texto + mídia em `bytea`) ficam no Postgres. Sem o banco, grava só em `data/data.json` (some no reinício do plano free). Mídias de recado têm limite de **10 MB** e são apagadas depois de cerca de **30 dias**. O plano **free** do Postgres no Render tem cerca de **1 GB** e, neste momento, expira em 30 dias se não for migrado para um plano pago.
 - **Sem login de verdade:** a "conta" é apto + telefone, sem SMS. É um protótipo.
 
 ## Testes automáticos
@@ -139,11 +141,11 @@ npm run test:node   # pares WebRTC em Node (werift): prova ICE/DTLS "connected" 
 
 ## Limitações
 
-- **Sem TURN:** só há STUN. Em redes com NAT simétrico/firewall rígido (muito comum em 4G e redes corporativas) o áudio pode **não conectar**. Em produção é necessário um servidor **TURN** (ex.: coturn) com credenciais temporárias.
+- **TURN:** o `/api/config` entrega `iceServers` (STUN + TURN). Padrão: tentativa no Open Relay (auth estática). Para um relé confiável, defina `TURN_URLS`, `TURN_USERNAME` e `TURN_CREDENTIAL` (ou `TURN_SECRET` no modo coturn REST) — uma conta gratuita da Metered resolve. Sem TURN válido, em 4G/NAT rígido o áudio pode não conectar, mesmo com o toque chegando.
 - **Sem push real:** toque e notificação só com o app/aba aberto. Produção: FCM/APNs, PushKit/CallKit (iOS) e ConnectionService (Android).
 - **Sem autenticação forte no morador:** sem confirmação do telefone por SMS e sem aprovação da portaria; qualquer pessoa com apto + telefone entra. O painel da portaria exige senha (padrão `365`, conferida no servidor via `PORTARIA_SENHA`).
 - **Telefone não disca:** o "número" é só um cadastro; a chamada é pela internet, não pela rede telefônica.
-- **Um servidor, memória/JSON:** não escala nem tem backup; reiniciar mantém `data/data.json`, mas não há banco de dados.
+- **Plano free do Render:** o serviço dorme ~15 min parado (primeiro acesso demora 30–60 s). Sem Postgres os cadastros somem no reinício. Com Postgres (1 GB no plano free) eles permanecem, mas o serviço ainda precisa acordar e o app precisa estar conectado para receber ligação (não há push FCM).
 - **Chamadas 1:1 apenas;** o "grupo" é só aviso de texto para o condomínio (sem voz em grupo).
 - **Eco:** duas abas no mesmo computador captam o áudio uma da outra — use fones.
 - **HTTP em rede local não libera microfone** em celulares (precisa de HTTPS; veja acima).
@@ -204,7 +206,7 @@ O APK sai em `app-android/build/app/outputs/flutter-apk/app-release.apk` (copie 
 ### Limitações do app Android
 - **App totalmente fechado não recebe chamada.** Se o app for removido da lista de recentes (ou o Android matar o processo), a conexão cai. Receber com o app fechado exige **push FCM**, que precisa de um **projeto Firebase** (conta Google) — **não configurado**. O ideal seria FCM de alta prioridade + `ConnectionService`/tela de chamada do sistema.
 - Alguns fabricantes (Xiaomi, Samsung, Motorola…) economizam bateria e podem matar o serviço em segundo plano: desative a otimização de bateria para o app.
-- **Sem TURN:** só STUN público; em 4G/NAT restrito o áudio pode não conectar.
+- Sem credenciais próprias de TURN, o relé público pode falhar; em 4G/NAT restrito o áudio pode não conectar.
 - **Não testado em aparelho físico nem emulador** nesta máquina (não há emulador aqui): o que foi testado está listado abaixo; teste real de áudio, toque e tela cheia precisa ser feito no celular.
 - Só **arm64** (celulares 64 bits, praticamente todos desde 2017); não roda em emulador x86_64 — para emulador, compile sem `--target-platform` e sem o filtro de ABI do `build.gradle.kts`.
 - Cadastro de morador sem SMS; o painel da portaria pede senha (como na versão web).

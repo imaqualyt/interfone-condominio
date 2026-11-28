@@ -1,6 +1,7 @@
 // Núcleo compartilhado (morador e portaria): WebSocket, chamadas WebRTC, tela de chamada, toque e notificações.
 (function () {
-  const STUN = 'stun:stun.l.google.com:19302'; // em produção é preciso também um servidor TURN
+  const STUN = 'stun:stun.l.google.com:19302';
+  let iceServersCache = [{ urls: STUN }];
   const $ = (s, el = document) => el.querySelector(s);
   const params = new URLSearchParams(location.search);
   const timeoutDemo = Number(params.get('timeout')) || null; // ?timeout=10 encurta o tempo de toque por número
@@ -26,6 +27,7 @@
   class Interfone {
     constructor({ kind, hello, onEvent }) {
       this.kind = kind; this.hello = hello; this.onEvent = onEvent || (() => {});
+      this.iceServers = iceServersCache;
       this.ws = null; this.call = null; this.pc = null; this.stream = null; this.muted = false;
       this.pendingIce = []; this.timerTick = null; this.t0 = null; this.audioCtx = null; this.ringTimer = null;
       this.ice = 'novo'; window.__ice = 'novo';
@@ -34,11 +36,21 @@
     }
 
     // ------------------------------------------------------------ conexão
-    conectar() {
+    async conectar() {
+      this.parado = false;
+      try {
+        const r = await fetch('/api/config', { cache: 'no-store' });
+        const cfg = await r.json();
+        if (Array.isArray(cfg.iceServers) && cfg.iceServers.length) {
+          iceServersCache = cfg.iceServers;
+          this.iceServers = cfg.iceServers;
+        }
+      } catch (e) { /* o WebSocket ainda tenta */ }
+      if (this.parado) return;
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = this.ws = new WebSocket(`${proto}//${location.host}/ws`);
-      ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', ...this.hello() }));
       ws.onmessage = ev => this.receber(JSON.parse(ev.data));
+      ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', ...this.hello() }));
       ws.onclose = () => {
         window.__wsOff = true; window.__wsOk = false; window.__atualizarFaixa && window.__atualizarFaixa();
         this.onEvent('conexao', false);
@@ -46,6 +58,7 @@
         clearTimeout(this.reconectar);
         if (!this.parado) this.reconectar = setTimeout(() => this.conectar(), 2000);
       };
+      ws.onerror = () => {};
     }
     parar() { this.parado = true; clearTimeout(this.reconectar); if (this.ws) this.ws.close(); }
     enviar(o) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); }
@@ -53,7 +66,11 @@
 
     receber(m) {
       switch (m.type) {
-        case 'hello:ok': window.__wsOff = false; window.__wsOk = true; window.__atualizarFaixa && window.__atualizarFaixa(); this.onEvent('conexao', true); break;
+        case 'hello:ok':
+          window.__wsOff = false; window.__wsOk = true; window.__atualizarFaixa && window.__atualizarFaixa();
+          if (Array.isArray(m.iceServers) && m.iceServers.length) { iceServersCache = m.iceServers; this.iceServers = m.iceServers; }
+          this.onEvent('conexao', true);
+          break;
         case 'erro': this.onEvent('erro', m); if (m.codigo === 'usuario_invalido' || m.codigo === 'senha_invalida') this.parar(); else this.aviso(m.texto); break;
         case 'call:started': if (this.call) { this.call.id = m.callId; } break;
         case 'call:status': this.statusChamada(m.texto); break;
@@ -142,7 +159,7 @@
 
     // ------------------------------------------------------------ WebRTC
     async prepararPc() {
-      this.pc = new RTCPeerConnection({ iceServers: [{ urls: STUN }] });
+      this.pc = new RTCPeerConnection({ iceServers: this.iceServers && this.iceServers.length ? this.iceServers : iceServersCache });
       const pc = this.pc;
       pc.onicecandidate = e => { if (e.candidate && this.call) this.enviar({ type: 'rtc', callId: this.call.id, data: { candidate: e.candidate } }); };
       pc.oniceconnectionstatechange = () => {

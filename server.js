@@ -4,14 +4,15 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
-const { db, salvar, blocoDe, aptoExiste, normalizarUnidade, apartamentos } = require('./store');
+const { db, salvar, blocoDe, aptoExiste, normalizarUnidade, apartamentos, iniciarPersistencia, persist } = require('./store');
+const anexarMensagens = require('./mensagens_api');
 
 const PORT = Number(process.env.PORT || 5180);
 const TIMEOUT_PADRAO = Number(process.env.TIMEOUT || 30); // segundos por número
 const PAPEIS = ['morador', 'proprietario'];
 const ROTULO = { morador: 'Morador', proprietario: 'Proprietário' };
 // Senha do painel da portaria. Padrão 365; em produção use a env PORTARIA_SENHA.
-const PORTARIA_SENHA = String(process.env.PORTARIA_SENHA || '365');
+const PORTARIA_SENHA = String(process.env.PORTARIA_SENHA || '365').trim();
 
 function senhaPortariaOk(s) {
   const a = Buffer.from(String(s == null ? '' : s).trim(), 'utf8');
@@ -31,8 +32,44 @@ function exigirSenhaPortaria(req, res) {
   return false;
 }
 
+function turnRestCredencial(secret, ttlSeg = 3600) {
+  const username = String(Math.floor(Date.now() / 1000) + ttlSeg);
+  const credential = crypto.createHmac('sha1', secret).update(username).digest('base64');
+  return { username, credential };
+}
+
+// ICE: STUN público + TURN configurável (TURN_URLS / TURN_USERNAME / TURN_CREDENTIAL
+// ou TURN_SECRET no modo coturn REST). Sem env, tenta o Open Relay com auth estática
+// (pode exigir conta própria da Metered — nesse caso defina as variáveis).
+function iceServers() {
+  const lista = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.relay.metered.ca:80' }
+  ];
+  const urls = String(process.env.TURN_URLS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const user = String(process.env.TURN_USERNAME || '').trim();
+  const cred = String(process.env.TURN_CREDENTIAL || '').trim();
+  const secret = String(process.env.TURN_SECRET || '').trim();
+  const padraoOpenRelay = [
+    'turn:staticauth.openrelay.metered.ca:80',
+    'turn:staticauth.openrelay.metered.ca:443',
+    'turn:staticauth.openrelay.metered.ca:443?transport=tcp'
+  ];
+  if (user && cred) {
+    const dest = urls.length ? urls : padraoOpenRelay;
+    dest.forEach(u => lista.push({ urls: u, username: user, credential: cred }));
+  } else {
+    const dest = urls.length ? urls : padraoOpenRelay;
+    const auth = turnRestCredencial(secret || 'openrelayprojectsecret');
+    dest.forEach(u => lista.push({ urls: u, username: auth.username, credential: auth.credential }));
+  }
+  return lista;
+}
+
+
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '12mb' }));
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
 const uid = () => crypto.randomBytes(6).toString('hex');
 const mascarar = t => '••••' + String(t).replace(/\D/g, '').slice(-4);
@@ -142,7 +179,22 @@ app.get('/api/avisos', (req, res) => {
   res.json(db.avisos.filter(a => !b || a.bloco === 'todos' || a.bloco === b).slice(-30).reverse());
 });
 
-app.get('/api/config', (req, res) => res.json({ timeoutPadrao: TIMEOUT_PADRAO, stun: 'stun:stun.l.google.com:19302', ...publicPortariaTel() }));
+app.get('/api/config', (req, res) => res.json({
+  timeoutPadrao: TIMEOUT_PADRAO,
+  stun: 'stun:stun.l.google.com:19302',
+  iceServers: iceServers(),
+  persistencia: persist.ativo() ? 'postgres' : 'arquivo',
+  limiteMidiaBytes: persist.MAX_MIDIA,
+  midiaExpiraDias: persist.DIAS_MIDIA,
+  ...publicPortariaTel()
+}));
+
+const ctxMensagens = {
+  db, exigirSenhaPortaria, senhaPortariaOk, senhaDaReq,
+  normalizarUnidade, aptoExiste, enviar, conexoes, socketsPortaria
+};
+anexarMensagens(app, ctxMensagens);
+
 
 app.post('/api/portaria/telefone', (req, res) => {
   if (!exigirSenhaPortaria(req, res)) return;
@@ -202,7 +254,11 @@ function iniciarChamada(ws, msg) {
 function proximaPerna(c) {
   if (c.estado !== 'tocando') return;
   c.idx++;
-  if (c.idx >= c.pernas.length) return finalizar(c, 'indisponivel');
+  if (c.idx >= c.pernas.length) {
+    const motivo = c.pernas.length === 0 ? 'sem_cadastro' : 'ninguem_disponivel';
+    console.log('[chamada] ' + c.id + ' indisponivel (' + motivo + ') alvo=' + (c.alvo.apto || c.alvo.tipo));
+    return finalizar(c, 'indisponivel');
+  }
   const perna = c.pernas[c.idx];
   const todos = perna.portaria ? socketsPortaria() : socketsDoUsuario(perna.userId);
   const livres = todos.filter(w => !w.callId && w !== c.ws);
@@ -292,6 +348,10 @@ function finalizar(c, resultado, quem) {
     fallback: c.tentativas.length > 1,
     duracaoSeg
   };
+  const origem = c.chamador.tipo === 'portaria' ? 'portaria' : ('apto ' + (c.chamador.apto || '?'));
+  const dest = c.alvo.tipo === 'portaria' ? 'portaria' : ('apto ' + (c.alvo.apto || '?'));
+  const motivos = (c.tentativas || []).map(t => (t.nome || t.papel || '?') + ':' + (t.resultado || '?')).join(', ');
+  console.log('[chamada] ' + c.id + ' ' + origem + ' -> ' + dest + ' resultado=' + entrada.resultado + ' duracao=' + duracaoSeg + 's tentativas=[' + motivos + ']');
   db.historico.push(entrada);
   if (db.historico.length > 500) db.historico.shift();
   salvar();
@@ -344,8 +404,14 @@ wss.on('connection', ws => {
         ws.kind = 'morador'; ws.userId = u.id; ws.usuario = u;
       }
       conexoes.add(ws);
-      enviar(ws, { type: 'hello:ok', timeoutPadrao: TIMEOUT_PADRAO });
+      const payloadHello = { type: 'hello:ok', timeoutPadrao: TIMEOUT_PADRAO, iceServers: iceServers() };
+      enviar(ws, payloadHello);
       transmitirPresenca();
+      if (ctxMensagens.naoLidasPara) {
+        ctxMensagens.naoLidasPara(ws).then(n => {
+          enviar(ws, { type: 'mensagem:nao-lidas', total: n.total, porApto: n.porApto || {} });
+        }).catch(e => console.error('nao-lidas hello:', e.message));
+      }
       return;
     }
     if (!conexoes.has(ws)) return;
@@ -380,9 +446,17 @@ wss.on('connection', ws => {
 
 setInterval(() => wss.clients.forEach(w => { if (!w.isAlive) return w.terminate(); w.isAlive = false; w.ping(); }), 20000);
 
-server.listen(PORT, () => {
-  console.log(`\n  Interfone Condomínio rodando em http://localhost:${PORT}`);
-  console.log(`    Morador:  http://localhost:${PORT}/morador/`);
-  console.log(`    Portaria: http://localhost:${PORT}/portaria/`);
-  console.log(`    Tempo por número: ${TIMEOUT_PADRAO}s (use ?timeout=10 na URL para encurtar)\n`);
+async function main() {
+  await iniciarPersistencia();
+  server.listen(PORT, () => {
+    console.log(`\n  Interfone Condomínio rodando em http://localhost:${PORT}`);
+    console.log(`    Morador:  http://localhost:${PORT}/morador/`);
+    console.log(`    Portaria: http://localhost:${PORT}/portaria/`);
+    console.log(`    Persistência: ${persist.ativo() ? 'Postgres' : 'data.json (volátil no plano free)'}`);
+    console.log(`    Tempo por número: ${TIMEOUT_PADRAO}s (use ?timeout=10 na URL para encurtar)\n`);
+  });
+}
+main().catch(err => {
+  console.error('Falha ao iniciar:', err);
+  process.exit(1);
 });

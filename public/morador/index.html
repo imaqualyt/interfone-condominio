@@ -55,6 +55,7 @@
   <section id="tela-app" hidden>
     <div class="abas">
       <button data-aba="contatos" class="ativa" type="button">Contatos</button>
+      <button data-aba="mensagens" type="button">Mensagens <span data-chat-cracha hidden>0</span></button>
       <button data-aba="avisos" type="button">Avisos</button>
       <button data-aba="historico" type="button">Histórico</button>
     </div>
@@ -66,6 +67,14 @@
       <div class="card"><button class="sec" id="btn-notif" type="button" style="width:100%">🔔 Ativar notificações e som de chamada</button>
         <p class="dica">Notificações e toque funcionam com a aba/app aberto. Push de verdade (app fechado) só na versão nativa.</p>
         <button class="sec" id="btn-sair" type="button" style="width:100%;margin-top:6px">Sair deste cadastro</button></div>
+    </div>
+
+    <div id="aba-mensagens" hidden>
+      <div class="card">
+        <h2>Mensagens com a portaria</h2>
+        <p class="dica">Envie texto, áudio, foto ou arquivo. A portaria responde neste mesmo fio. Mídias expiram em cerca de 30 dias (até 10 MB cada).</p>
+        <div id="chat-raiz"></div>
+      </div>
     </div>
 
     <div id="aba-avisos" hidden>
@@ -83,6 +92,7 @@
 <script src="/js/pwa.js"></script>
 <script src="/js/interfone.js"></script>
 <script src="/js/unidades.js"></script>
+<script src="/js/chat.js"></script>
 <script src="/js/morador.js"></script>
 </body>
 </html>
