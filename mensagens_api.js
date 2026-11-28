@@ -9,8 +9,13 @@ const upload = multer({
 
 function autenticar(req, res, { apto, db, senhaPortariaOk, senhaDaReq, normalizarUnidade }) {
   const unidade = apto ? normalizarUnidade(apto) : '';
-  if (senhaPortariaOk(senhaDaReq(req))) {
-    return { tipo: 'portaria', nome: 'Portaria', userId: null, apto: unidade };
+  const senha = senhaDaReq(req);
+  if (senha) {
+    if (senhaPortariaOk(senha)) {
+      return { tipo: 'portaria', nome: 'Portaria', userId: null, apto: unidade };
+    }
+    res.status(401).json({ erro: 'Senha incorreta' });
+    return null;
   }
   const id = (req.headers['x-user-id'] || (req.body && req.body.userId) || req.query.userId || '').toString();
   const u = db.usuarios.find(x => x.id === id);
