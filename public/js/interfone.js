@@ -30,6 +30,7 @@
       this.iceServers = iceServersCache;
       this.ws = null; this.call = null; this.pc = null; this.stream = null; this.muted = false;
       this.pendingIce = []; this.timerTick = null; this.t0 = null; this.audioCtx = null; this.ringTimer = null;
+      this.pingTimer = null; this.ultimoPong = 0;
       this.ice = 'novo'; window.__ice = 'novo';
       this.montarTela();
       this.desbloquearAudio();
@@ -52,6 +53,7 @@
       ws.onmessage = ev => this.receber(JSON.parse(ev.data));
       ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', ...this.hello() }));
       ws.onclose = () => {
+        this.pararPing();
         window.__wsOff = true; window.__wsOk = false; window.__atualizarFaixa && window.__atualizarFaixa();
         this.onEvent('conexao', false);
         if (this.call) this.encerrarLocal('Conexão perdida');
@@ -59,17 +61,53 @@
         if (!this.parado) this.reconectar = setTimeout(() => this.conectar(), 2000);
       };
       ws.onerror = () => {};
+      if (!this._visibilidade) {
+        this._visibilidade = true;
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') this.garantirConexao();
+        });
+        window.addEventListener('focus', () => this.garantirConexao());
+        window.addEventListener('online', () => this.garantirConexao());
+      }
     }
-    parar() { this.parado = true; clearTimeout(this.reconectar); if (this.ws) this.ws.close(); }
+    parar() { this.parado = true; this.pararPing(); clearTimeout(this.reconectar); if (this.ws) this.ws.close(); }
+    iniciarPing() {
+      this.pararPing();
+      this.ultimoPong = Date.now();
+      this.pingTimer = setInterval(() => {
+        if (!this.ws || this.ws.readyState !== 1) return;
+        if (this.ultimoPong && Date.now() - this.ultimoPong > 25000) {
+          try { this.ws.close(); } catch {}
+          return;
+        }
+        this.enviar({ type: 'ping' });
+      }, 10000);
+    }
+    pararPing() { if (this.pingTimer) { clearInterval(this.pingTimer); this.pingTimer = null; } }
+    garantirConexao() {
+      if (this.parado) return;
+      if (this.ws && this.ws.readyState === 1 && window.__wsOk) { this.enviar({ type: 'ping' }); return; }
+      if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) {
+        try { this.ws.close(); } catch {}
+        return;
+      }
+      clearTimeout(this.reconectar);
+      this.conectar();
+    }
     enviar(o) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); }
     get online() { return this.ws && this.ws.readyState === 1 && window.__wsOk; }
 
     receber(m) {
+      this.ultimoPong = Date.now();
       switch (m.type) {
         case 'hello:ok':
           window.__wsOff = false; window.__wsOk = true; window.__atualizarFaixa && window.__atualizarFaixa();
           if (Array.isArray(m.iceServers) && m.iceServers.length) { iceServersCache = m.iceServers; this.iceServers = m.iceServers; }
+          this.iniciarPing();
           this.onEvent('conexao', true);
+          break;
+        case 'pong':
+          this.ultimoPong = Date.now();
           break;
         case 'erro': this.onEvent('erro', m); if (m.codigo === 'usuario_invalido' || m.codigo === 'senha_invalida') this.parar(); else this.aviso(m.texto); break;
         case 'call:started': if (this.call) { this.call.id = m.callId; } break;

@@ -103,6 +103,11 @@ const chamadas = new Map(); // id -> chamada
 const enviar = (ws, obj) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); };
 const socketsDoUsuario = id => [...conexoes].filter(w => w.kind === 'morador' && w.userId === id);
 const socketsPortaria = () => [...conexoes].filter(w => w.kind === 'portaria');
+const rotuloWs = w => w && w.kind === 'portaria'
+  ? ('portaria/' + (w.nome || 'Portaria'))
+  : (w && w.kind === 'morador' && w.usuario)
+    ? ('morador/' + w.usuario.apto + '/' + w.usuario.nome)
+    : 'nao-autenticado';
 const publico = u => {
   const o = { id: u.id, nome: u.nome, apto: u.apto, papel: u.papel, telefone: mascarar(u.telefone) };
   if (u.bloco) o.bloco = u.bloco;
@@ -265,10 +270,25 @@ function proximaPerna(c) {
   const tentativa = { papel: perna.papel, nome: perna.nome, telefone: perna.telefone || null, resultado: null };
   c.tentativas.push(tentativa);
   if (!livres.length) {
+    if (!todos.length && !c.rechecagem) {
+      c.rechecagem = true;
+      c.tentativas.pop();
+      c.idx--;
+      enviar(c.ws, { type: 'call:status', texto: `Aguardando ${perna.rotulo} ficar online…`, tentativa: Math.max(1, c.idx + 1), total: c.pernas.length });
+      c.timer = setTimeout(() => proximaPerna(c), 2500);
+      return;
+    }
     tentativa.resultado = todos.length ? 'ocupado' : 'offline';
-    enviar(c.ws, { type: 'call:status', texto: `${perna.rotulo}: ${tentativa.resultado === 'offline' ? 'fora do ar' : 'ocupado'}.${c.idx + 1 < c.pernas.length ? ' Tentando o próximo número…' : ''}`, tentativa: c.idx + 1, total: c.pernas.length });
+    const fimFila = c.idx + 1 >= c.pernas.length;
+    const dica = tentativa.resultado === 'offline'
+      ? (perna.portaria
+          ? 'Portaria está offline. Abra o app ou o painel da portaria e deixe a notificação “Interfone conectado” visível.'
+          : `${perna.rotulo} está offline (app fechado ou sem conexão).`)
+      : `${perna.rotulo}: ocupado.`;
+    enviar(c.ws, { type: 'call:status', texto: dica + (fimFila ? '' : ' Tentando o próximo número…'), tentativa: c.idx + 1, total: c.pernas.length });
     return proximaPerna(c);
   }
+  c.rechecagem = false;
   c.pendentes = new Set(livres);
   livres.forEach(w => enviar(w, {
     type: 'call:incoming', callId: c.id, timeoutSeg: c.timeoutSeg,
@@ -337,7 +357,17 @@ function finalizar(c, resultado, quem) {
   const eraAtiva = c.estado === 'ativa';
   c.estado = 'fim';
   const duracaoSeg = eraAtiva ? Math.round((Date.now() - c.atendidaEm) / 1000) : 0;
-  const texto = resultado === 'indisponivel' ? 'Apto indisponível' : resultado === 'cancelada' ? 'Chamada cancelada' : 'Chamada encerrada';
+  const tent = c.tentativas || [];
+  const tocou = tent.some(x => x.resultado === 'sem_resposta' || x.resultado === 'recusada' || x.resultado === 'ocupado');
+  const texto = resultado === 'indisponivel'
+    ? (c.alvo.tipo === 'portaria'
+        ? (tocou
+            ? 'Portaria indisponível (ninguém atendeu no painel).'
+            : 'Portaria indisponível (o painel não está online). Abra o Interfone na portaria e deixe a notificação “Interfone conectado” visível.')
+        : (tocou
+            ? 'Apto indisponível (ninguém atendeu).'
+            : 'Apto indisponível (ninguém online neste apartamento).'))
+    : resultado === 'cancelada' ? 'Chamada cancelada' : 'Chamada encerrada';
   const entrada = {
     id: c.id, em: new Date(c.inicio).toISOString(),
     de: { tipo: c.chamador.tipo, nome: c.chamador.nome, apto: c.chamador.apto },
@@ -404,6 +434,8 @@ wss.on('connection', ws => {
         ws.kind = 'morador'; ws.userId = u.id; ws.usuario = u;
       }
       conexoes.add(ws);
+      ws.falhasPing = 0;
+      console.log('[ws] conectou ' + rotuloWs(ws));
       const payloadHello = { type: 'hello:ok', timeoutPadrao: TIMEOUT_PADRAO, iceServers: iceServers() };
       enviar(ws, payloadHello);
       transmitirPresenca();
@@ -427,10 +459,15 @@ wss.on('connection', ws => {
         return enviar(destino, { type: 'rtc', callId: c.id, data: msg.data });
       }
       case 'aviso': return aviso(ws, msg);
+      case 'ping':
+        ws.isAlive = true;
+        ws.falhasPing = 0;
+        return enviar(ws, { type: 'pong', t: Date.now() });
     }
   });
   ws.on('close', () => {
     if (!conexoes.has(ws)) return;
+    console.log('[ws] saiu ' + rotuloWs(ws));
     // Se estava tocando como destinatário, trata como "fora do ar"
     chamadas.forEach(c => {
       if (c.estado === 'tocando' && c.pendentes.has(ws)) {
@@ -444,7 +481,19 @@ wss.on('connection', ws => {
   });
 });
 
-setInterval(() => wss.clients.forEach(w => { if (!w.isAlive) return w.terminate(); w.isAlive = false; w.ping(); }), 20000);
+setInterval(() => wss.clients.forEach(w => {
+  if (!w.isAlive) {
+    w.falhasPing = (w.falhasPing || 0) + 1;
+    if (w.falhasPing >= 2) {
+      console.log('[ws] timeout ' + rotuloWs(w));
+      return w.terminate();
+    }
+  } else {
+    w.falhasPing = 0;
+  }
+  w.isAlive = false;
+  try { w.ping(); } catch {}
+}), 25000);
 
 async function main() {
   await iniciarPersistencia();
