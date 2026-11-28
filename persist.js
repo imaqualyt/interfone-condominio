@@ -376,10 +376,9 @@ async function apagarMensagens({ ids, aptos }) {
 }
 
 module.exports = {
-
   MAX_MIDIA, DIAS_MIDIA,
   iniciar, ativo, salvarEstado,
   gravarMidia, obterMidia, midiaDaMensagem,
   criarMensagem, listarMensagens, marcarLidas, conversas, naoLidas,
-  limparMidiasAntigas
+  limparMidiasAntigas, apagarMensagens, apagarMidias
 };
