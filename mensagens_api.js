@@ -1,4 +1,4 @@
-// API de recados entre um apartamento e a portaria (texto, áudio, foto, arquivo).
+// API de recados entre um apartamento e a portaria (texto, áudio, foto, vídeo, arquivo).
 const multer = require('multer');
 const persist = require('./persist');
 
@@ -6,6 +6,19 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: persist.MAX_MIDIA }
 });
+
+const MIME_POR_EXT = {
+  mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', '3gp': 'video/3gpp', webm: 'video/webm',
+  mkv: 'video/x-matroska', avi: 'video/x-msvideo'
+};
+
+// O multipart do app antigo manda application/octet-stream: deduz o tipo pela extensão do nome.
+function mimeEfetivo(mime, nome) {
+  const m = String(mime || '').toLowerCase();
+  if (m && m !== 'application/octet-stream') return m;
+  const ext = String(nome || '').toLowerCase().split('.').pop();
+  return MIME_POR_EXT[ext] || m || 'application/octet-stream';
+}
 
 function autenticar(req, res, { apto, db, senhaPortariaOk, senhaDaReq, normalizarUnidade }) {
   const unidade = apto ? normalizarUnidade(apto) : '';
@@ -140,27 +153,24 @@ module.exports = function anexarMensagens(app, ctx) {
     if (!quem) return;
     const texto = String((req.body && req.body.texto) || '').trim();
     let tipo = String((req.body && req.body.tipo) || (arquivo ? 'arquivo' : 'texto'));
-    if (!['texto', 'audio', 'foto', 'arquivo'].includes(tipo)) tipo = arquivo ? 'arquivo' : 'texto';
+    if (!['texto', 'audio', 'foto', 'video', 'arquivo'].includes(tipo)) tipo = arquivo ? 'arquivo' : 'texto';
 
     let midia = null;
     if (arquivo && arquivo.buffer) {
-      midia = await persist.gravarMidia({
-        buffer: arquivo.buffer,
-        mime: arquivo.mimetype || (req.body && req.body.mime) || 'application/octet-stream',
-        nome: arquivo.originalname || (req.body && req.body.nomeArquivo) || 'arquivo',
-        tipo
-      });
-      midia.tipo = tipo === 'texto' ? (String(midia.mime).startsWith('image/') ? 'foto' : 'arquivo') : tipo;
+      const nomeArq = arquivo.originalname || (req.body && req.body.nomeArquivo) || 'arquivo';
+      const mimeArq = mimeEfetivo(arquivo.mimetype || (req.body && req.body.mime), nomeArq);
+      if (tipo === 'arquivo' && mimeArq.startsWith('video/')) tipo = 'video';
+      midia = await persist.gravarMidia({ buffer: arquivo.buffer, mime: mimeArq, nome: nomeArq, tipo });
+      midia.tipo = tipo === 'texto'
+        ? (String(midia.mime).startsWith('image/') ? 'foto' : (String(midia.mime).startsWith('video/') ? 'video' : 'arquivo'))
+        : tipo;
     } else if (req.body && req.body.dados) {
       const b64 = String(req.body.dados).replace(/^data:[^;]+;base64,/, '');
       const buf = Buffer.from(b64, 'base64');
-      tipo = tipo === 'texto' ? 'arquivo' : tipo;
-      midia = await persist.gravarMidia({
-        buffer: buf,
-        mime: req.body.mime || 'application/octet-stream',
-        nome: req.body.nomeArquivo || 'arquivo',
-        tipo
-      });
+      const nomeB64 = req.body.nomeArquivo || 'arquivo';
+      const mimeB64 = mimeEfetivo(req.body.mime, nomeB64);
+      tipo = tipo === 'texto' || (tipo === 'arquivo' && mimeB64.startsWith('video/')) ? (mimeB64.startsWith('video/') ? 'video' : 'arquivo') : tipo;
+      midia = await persist.gravarMidia({ buffer: buf, mime: mimeB64, nome: nomeB64, tipo });
       midia.tipo = tipo;
     }
 
@@ -210,15 +220,40 @@ module.exports = function anexarMensagens(app, ctx) {
       const arq = await persist.obterMidia(id);
       if (!arq) return res.status(404).json({ erro: 'Arquivo não encontrado ou expirado.' });
       const nome = arq.nome || 'arquivo';
-      const mime = arq.mime || 'application/octet-stream';
-      const inline = mime.startsWith('image/') || mime.startsWith('audio/') || mime === 'application/pdf';
-      res.set({
+      const mime = mimeEfetivo(arq.mime, nome);
+      const inline = mime.startsWith('image/') || mime.startsWith('audio/') || mime.startsWith('video/') || mime === 'application/pdf';
+      const dados = arq.dados || Buffer.alloc(0);
+      const total = dados.length;
+      const cab = {
         'Content-Type': mime,
-        'Content-Length': arq.bytes || (arq.dados && arq.dados.length) || 0,
+        'Accept-Ranges': 'bytes',
         'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${nome.replace(/"/g, '')}"`,
         'Cache-Control': 'private, max-age=3600'
-      });
-      res.end(arq.dados);
+      };
+      // Range (necessário para streaming de vídeo no navegador/Safari e players nativos)
+      const rm = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
+      if (rm && total > 0 && (rm[1] !== '' || rm[2] !== '')) {
+        let ini, fim;
+        if (rm[1] === '') { // últimos N bytes
+          ini = Math.max(0, total - parseInt(rm[2], 10));
+          fim = total - 1;
+        } else {
+          ini = parseInt(rm[1], 10);
+          fim = rm[2] === '' ? total - 1 : Math.min(parseInt(rm[2], 10), total - 1);
+        }
+        if (ini >= total || ini > fim) {
+          res.status(416).set({ ...cab, 'Content-Range': `bytes */${total}` });
+          return res.end();
+        }
+        res.status(206).set({
+          ...cab,
+          'Content-Range': `bytes ${ini}-${fim}/${total}`,
+          'Content-Length': fim - ini + 1
+        });
+        return res.end(dados.subarray(ini, fim + 1));
+      }
+      res.set({ ...cab, 'Content-Length': total });
+      res.end(dados);
     } catch (e) {
       console.error(e);
       res.status(500).json({ erro: 'Falha ao baixar o arquivo.' });
@@ -262,3 +297,5 @@ module.exports = function anexarMensagens(app, ctx) {
     }
   });
 };
+
+module.exports.mimeEfetivo = mimeEfetivo;

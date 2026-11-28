@@ -1,4 +1,4 @@
-// Recados entre um apartamento e a portaria (texto, áudio, foto e arquivo).
+// Recados entre um apartamento e a portaria (texto, áudio, foto, vídeo e arquivo).
 (function () {
   const $ = (s, el = document) => el.querySelector(s);
   const MAX = 10 * 1024 * 1024;
@@ -91,16 +91,21 @@
           </div>
         </div>
         <input id="chat-cam" type="file" accept="image/*" capture="environment" hidden>
-        <input id="chat-galeria" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,audio/*" hidden>
+        <input id="chat-video" type="file" accept="video/*" capture="environment" hidden>
+        <input id="chat-galeria" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,audio/*" hidden>
       `;
       $('#chat-cam').onchange = async ev => {
         const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
         if (f) await this.enviarArquivo('foto', await comprimirImagem(f));
       };
+      $('#chat-video').onchange = async ev => {
+        const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+        if (f) await this.enviarArquivo('video', f);
+      };
       $('#chat-galeria').onchange = async ev => {
         const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
         if (!f) return;
-        const tipo = f.type.startsWith('image/') ? 'foto' : (f.type.startsWith('audio/') ? 'audio' : 'arquivo');
+        const tipo = f.type.startsWith('image/') ? 'foto' : (f.type.startsWith('audio/') ? 'audio' : (f.type.startsWith('video/') ? 'video' : 'arquivo'));
         await this.enviarArquivo(tipo, tipo === 'foto' ? await comprimirImagem(f) : f);
       };
     },
@@ -180,6 +185,7 @@
           <div class="chat-menu" id="chat-menu" hidden>
             <button type="button" data-acao="audio">🎤 Gravar áudio</button>
             <button type="button" data-acao="foto">📷 Tirar foto</button>
+            <button type="button" data-acao="video">🎥 Gravar vídeo</button>
             <button type="button" data-acao="arquivo">🖼 Anexar da galeria/arquivo</button>
           </div>
           <button type="button" class="chat-rec" id="chat-rec" hidden>Gravando… solte para enviar</button>
@@ -236,6 +242,9 @@
       if (mid.tipo === 'foto' || (mid.mime && mid.mime.startsWith('image/'))) {
         return `<img class="chat-foto" alt="${escapeHtml(mid.nome || 'foto')}" data-midia="${mid.id}" data-foto="${mid.id}">`;
       }
+      if (mid.tipo === 'video' || (mid.mime && mid.mime.startsWith('video/'))) {
+        return `<video class="chat-video" controls preload="metadata" playsinline data-midia="${mid.id}"></video>`;
+      }
       if (mid.tipo === 'audio' || (mid.mime && mid.mime.startsWith('audio/'))) {
         return `<audio class="chat-audio" controls preload="none" data-midia="${mid.id}"></audio>`;
       }
@@ -245,7 +254,7 @@
     async carregarMidiaEl(el) {
       try {
         const url = await urlMidia(el.dataset.midia);
-        if (el.tagName === 'IMG' || el.tagName === 'AUDIO') el.src = url;
+        if (el.tagName === 'IMG' || el.tagName === 'AUDIO' || el.tagName === 'VIDEO') el.src = url;
         else if (el.tagName === 'A') {
           el.href = url;
           el.download = el.dataset.download || 'arquivo';
@@ -289,7 +298,7 @@
 
     async enviarArquivo(tipo, file) {
       if (!file || !this.apto) return;
-      if (file.size > MAX) return alert('Arquivo maior que 10 MB.');
+      if (file.size > MAX) return alert(tipo === 'video' ? 'Vídeo muito grande (máximo 10 MB). Grave um mais curto.' : 'Arquivo maior que 10 MB.');
       const fd = new FormData();
       fd.append('apto', this.apto);
       fd.append('tipo', tipo);
@@ -306,6 +315,7 @@
 
     acaoAnexo(acao) {
       if (acao === 'foto') $('#chat-cam').click();
+      else if (acao === 'video') $('#chat-video').click();
       else if (acao === 'arquivo') $('#chat-galeria').click();
       else if (acao === 'audio') this.alternarGravacao();
     },
@@ -357,6 +367,7 @@
     if (!m) return '';
     if (m.tipo === 'audio') return '🎤 Áudio';
     if (m.tipo === 'foto') return '📷 Foto';
+    if (m.tipo === 'video') return '🎥 Vídeo';
     return '📎 ' + (m.nome || 'Arquivo');
   }
   function escapeHtml(s) {

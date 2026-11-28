@@ -38,7 +38,7 @@ npm start          # sobe em http://localhost:5180
 - Telefone da portaria (padrão após um reinício): `PORTARIA_TELEFONE=21994036578 npm start`.
 
 ### Telefone da portaria
-Há um fio de **recados** (texto, áudio, foto ou arquivo) entre cada apartamento e a portaria, no site e no app, em tempo real pelo mesmo WebSocket, com aviso de não lidas. As mídias ficam no Postgres (até 10 MB, expiram em ~30 dias).
+Há um fio de **recados** (texto, áudio, foto, vídeo ou arquivo) entre cada apartamento e a portaria, no site e no app, em tempo real pelo mesmo WebSocket, com aviso de não lidas. As mídias ficam no Postgres (até 10 MB, expiram em ~30 dias). Vídeos: o app grava dentro do app, 480p, até 45 s (cabe nos 10 MB), e toca no próprio chat; o servidor aceita Range (streaming).
 
 O painel da portaria pede uma **senha** (conferida no servidor; padrão `365`, ou a variável `PORTARIA_SENHA`). No painel, preencha **Telefone da portaria (com DDD)** e toque em **Salvar**. O número é editável a qualquer momento (inclusive para apagar). Os moradores veem o telefone no cartão da Portaria e podem tocar em **Ligar pela linha**, que abre o discador do celular (`tel:+55…`). A ligação pelo interfone (**Ligar**) continua igual; quando ninguém está online no painel, o app destaca a opção de ligar pela linha.
 
