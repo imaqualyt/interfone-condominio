@@ -224,4 +224,41 @@ module.exports = function anexarMensagens(app, ctx) {
       res.status(500).json({ erro: 'Falha ao baixar o arquivo.' });
     }
   });
+
+
+  app.post('/api/portaria/limpeza', async (req, res) => {
+    if (!exigirSenhaPortaria(req, res)) return;
+    try {
+      const body = req.body || {};
+      const nomes = new Set((body.nomes || []).map(n => String(n).trim()).filter(Boolean));
+      const telefones = new Set((body.telefones || []).map(t => String(t).replace(/\D/g, '')).filter(Boolean));
+      const usuarioIds = new Set((body.usuarioIds || []).map(String).filter(Boolean));
+      const aptosMsg = (body.aptosRecados || []).map(a => normalizarUnidade(a)).filter(Boolean);
+      const mensagemIds = (body.mensagemIds || []).map(String).filter(Boolean);
+
+      const antes = (db.usuarios || []).length;
+      db.usuarios = (db.usuarios || []).filter(u => {
+        const tel = String(u.telefone || '').replace(/\D/g, '');
+        const bate = (usuarioIds.size && usuarioIds.has(u.id))
+          || (nomes.size && nomes.has(String(u.nome || '').trim()))
+          || (telefones.size && telefones.has(tel));
+        return !bate;
+      });
+      const usuariosRemovidos = antes - db.usuarios.length;
+      if (usuariosRemovidos) {
+        const { salvar } = require('./store');
+        salvar();
+      }
+
+      let recados = { mensagens: 0, midias: 0 };
+      if (aptosMsg.length || mensagemIds.length) {
+        recados = await persist.apagarMensagens({ ids: mensagemIds, aptos: aptosMsg });
+      }
+      if (ctx.difundirNaoLidas) ctx.difundirNaoLidas().catch(() => {});
+      res.json({ ok: true, usuariosRemovidos, recados });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ erro: 'Falha ao limpar dados de teste.' });
+    }
+  });
 };

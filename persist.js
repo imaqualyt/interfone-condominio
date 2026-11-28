@@ -332,7 +332,51 @@ async function limparMidiasAntigas() {
   if (n) console.log(`Limpeza (memória): ${n} mídias antigas removidas.`);
 }
 
+
+async function apagarMidias(ids) {
+  const lista = [...new Set((ids || []).filter(Boolean))];
+  if (!lista.length) return 0;
+  if (pool) {
+    const r = await pool.query('DELETE FROM midias WHERE id = ANY($1::text[])', [lista]);
+    return r.rowCount || 0;
+  }
+  let n = 0;
+  for (const id of lista) { if (memMidia.delete(id)) n++; }
+  return n;
+}
+
+async function apagarMensagens({ ids, aptos }) {
+  const idSet = new Set((ids || []).filter(Boolean));
+  const aptoSet = new Set((aptos || []).filter(Boolean));
+  let midiaIds = [];
+  let n = 0;
+  if (pool) {
+    const conds = [];
+    const params = [];
+    if (idSet.size) { params.push([...idSet]); conds.push('id = ANY($' + params.length + '::text[])'); }
+    if (aptoSet.size) { params.push([...aptoSet]); conds.push('apto = ANY($' + params.length + '::text[])'); }
+    if (!conds.length) return { mensagens: 0, midias: 0 };
+    const sel = await pool.query('SELECT id, midia_id FROM mensagens WHERE ' + conds.join(' OR '), params);
+    midiaIds = sel.rows.map(r => r.midia_id).filter(Boolean);
+    const del = await pool.query('DELETE FROM mensagens WHERE ' + conds.join(' OR '), params);
+    n = del.rowCount || 0;
+  } else {
+    const keep = [];
+    for (const m of memMsg) {
+      if (idSet.has(m.id) || aptoSet.has(m.apto)) {
+        n++;
+        if (m.midia_id) midiaIds.push(m.midia_id);
+      } else keep.push(m);
+    }
+    memMsg.length = 0;
+    memMsg.push(...keep);
+  }
+  const midias = await apagarMidias(midiaIds);
+  return { mensagens: n, midias };
+}
+
 module.exports = {
+
   MAX_MIDIA, DIAS_MIDIA,
   iniciar, ativo, salvarEstado,
   gravarMidia, obterMidia, midiaDaMensagem,
